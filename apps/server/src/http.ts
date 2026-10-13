@@ -41,7 +41,7 @@ export const citiesHandlers = (entries: ReadonlyArray<CatalogEntry>) =>
           publisher.manifest(params.city).pipe(
             Effect.flatMap(
               Option.match({
-                onNone: () => Effect.fail(new HttpApiError.NotFound({})),
+                onNone: () => Effect.fail(HttpApiError.NotFound.make({})),
                 onSome: Effect.succeed,
               }),
             ),
@@ -59,10 +59,10 @@ export const feedsHandlers = HttpApiBuilder.group(
     return handlers.handle("timetable", ({ params }) =>
       Effect.gen(function* () {
         const file = publisher.feedFile(params.file);
-        if (Option.isNone(file)) return yield* new HttpApiError.NotFound({});
+        if (Option.isNone(file)) return yield* HttpApiError.NotFound.make({});
         const body = yield* fs
           .readFile(file.value)
-          .pipe(Effect.mapError(() => new HttpApiError.NotFound({})));
+          .pipe(Effect.mapError(() => HttpApiError.NotFound.make({})));
         return HttpServerResponse.uint8Array(body, {
           contentType: "application/octet-stream",
           headers: {

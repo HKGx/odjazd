@@ -1,7 +1,9 @@
 import { area, at, buildTimetable } from "@odjazd/engine/testing";
-import type { Corridor } from "@odjazd/model";
+import { type Corridor, InterchangeArea } from "@odjazd/model";
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { makeHost } from "./host.ts";
+import { BoardQuery, CompareQuery } from "./schema.ts";
 
 const stops = [
   ["a1", 51.7, 19.46],
@@ -51,13 +53,18 @@ const corridors: ReadonlyArray<typeof Corridor.Encoded> = [
   { slug: "broken", cityId: "pl-test", name: "Broken", legs: [{ from: "a", to: "x", allow: {} }] },
 ];
 
+// Queries go through the RPC schemas, as they do on the wire.
+const encode = { areas: areas.map((a) => Schema.encodeSync(InterchangeArea)(a)) };
+
 describe("worker host", () => {
   const host = makeHost(timetable);
+  const compare = (query: Omit<typeof CompareQuery.Encoded, "hash" | "areas">) =>
+    host.compare(Schema.decodeSync(CompareQuery)({ hash: "h", areas: encode.areas, ...query }));
+  const boardOf = (query: typeof BoardQuery.Encoded) =>
+    host.board(Schema.decodeSync(BoardQuery)(query));
 
   it("compares corridors into plain DTOs", () => {
-    const result = host.compare({
-      kind: "compare",
-      areas,
+    const result = compare({
       corridors,
       date: "2026-10-14",
       from: "08:00",
@@ -82,9 +89,7 @@ describe("worker host", () => {
   });
 
   it("flags dates outside the timetable", () => {
-    const result = host.compare({
-      kind: "compare",
-      areas,
+    const result = compare({
       corridors: [],
       date: "2027-01-01",
       from: "08:00",
@@ -96,9 +101,15 @@ describe("worker host", () => {
   });
 
   it("boards an area", () => {
-    const board = host.board({
-      kind: "board",
-      area: area("a", 51.7, 19.46),
+    const board = boardOf({
+      hash: "h",
+      area: encode.areas[0] ?? {
+        slug: "a",
+        cityId: "pl-test",
+        name: "a",
+        center: { lat: 0, lon: 0 },
+        radiusMeters: 10,
+      },
       at: at("08:00"),
       horizonMinutes: 60,
       limit: 10,

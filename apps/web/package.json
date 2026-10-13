@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@effect/platform-browser": "4.0.4",
+    "@odjazd/api": "workspace:*",
     "@odjazd/cities": "workspace:*",
     "@odjazd/model": "workspace:*",
     "@odjazd/user-data": "workspace:*",

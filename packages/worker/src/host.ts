@@ -1,27 +1,8 @@
 import { compareCorridors, departuresFromArea, resolveArea } from "@odjazd/engine";
-import {
-  Corridor,
-  InterchangeArea,
-  localToEpoch,
-  ServiceDate,
-  type EpochSeconds,
-  type LineId,
-} from "@odjazd/model";
+import { localToEpoch, type EpochSeconds, type LineId } from "@odjazd/model";
 import { scheduleRealization, straightLineWalking } from "@odjazd/prediction";
 import type { Timetable } from "@odjazd/timetable";
-import { Schema } from "effect";
-import type {
-  BoardDto,
-  BoardRequest,
-  ComparisonDto,
-  CompareRequest,
-  LineLabel,
-} from "./protocol.ts";
-
-const decodeAreas = Schema.decodeUnknownSync(Schema.Array(InterchangeArea));
-const decodeCorridors = Schema.decodeUnknownSync(Schema.Array(Corridor));
-const decodeArea = Schema.decodeUnknownSync(InterchangeArea);
-const decodeDate = Schema.decodeUnknownSync(ServiceDate);
+import type { BoardDto, BoardQuery, CompareQuery, ComparisonDto, LineLabel } from "./schema.ts";
 
 /** The engine bound to one loaded timetable; everything here is synchronous. */
 export const makeHost = (timetable: Timetable) => {
@@ -41,16 +22,15 @@ export const makeHost = (timetable: Timetable) => {
   };
   const stopName = (stop: number) => timetable.stops.names[stop] ?? "?";
 
-  const dayIndex = (date: ServiceDate) => {
+  const dayIndex = (date: string) => {
     const first = Date.parse(`${timetable.days.first}T00:00:00Z`);
     return Math.round((Date.parse(`${date}T00:00:00Z`) - first) / 86_400_000);
   };
 
-  const compare = (request: CompareRequest): ComparisonDto => {
-    const date = decodeDate(request.date);
-    const areas = decodeAreas(request.areas);
-    const corridors = decodeCorridors(request.corridors);
+  const compare = (request: CompareQuery): ComparisonDto => {
+    const { date, areas, corridors } = request;
     const known = new Set(areas.map((area) => area.slug));
+    const areaName = new Map<string, string>(areas.map((area) => [area.slug, area.name]));
     const rejected: Array<{ slug: string; reason: string }> = [];
     const usable = corridors.filter((corridor) => {
       const missing = corridor.legs
@@ -92,6 +72,8 @@ export const makeHost = (timetable: Timetable) => {
         legs: prepared.legs.map((leg) => ({
           from: leg.rule.from,
           to: leg.rule.to,
+          fromName: areaName.get(leg.rule.from) ?? leg.rule.from,
+          toName: areaName.get(leg.rule.to) ?? leg.rule.to,
           lines: leg.lines.map((line) => ({ ...label(line.id), instances: line.instances })),
         })),
       })),
@@ -121,8 +103,8 @@ export const makeHost = (timetable: Timetable) => {
     };
   };
 
-  const board = (request: BoardRequest): BoardDto => {
-    const area = decodeArea(request.area);
+  const board = (request: BoardQuery): BoardDto => {
+    const { area } = request;
     const resolved = resolveArea(timetable, area);
     const departures = departuresFromArea(
       timetable,
@@ -146,7 +128,7 @@ export const makeHost = (timetable: Timetable) => {
     };
   };
 
-  return { compare, board };
+  return { timetable, compare, board };
 };
 
 export type Host = ReturnType<typeof makeHost>;

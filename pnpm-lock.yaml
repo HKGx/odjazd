@@ -223,6 +223,9 @@ importers:
       '@effect/platform-browser':
         specifier: 4.0.4
         version: 4.0.4(effect@4.0.4)
+      '@odjazd/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@odjazd/cities':
         specifier: workspace:*
         version: link:../../packages/cities

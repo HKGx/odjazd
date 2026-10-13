@@ -1,5 +1,6 @@
 import { render } from "@solidjs/web";
+import { App } from "./app.tsx";
+import "./styles.css";
 
-const App = () => <h1>odjazd</h1>;
-
-render(() => <App />, document.getElementById("app")!);
+const root = document.getElementById("app");
+if (root !== null) render(() => <App />, root);

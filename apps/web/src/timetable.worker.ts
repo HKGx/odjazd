@@ -1,0 +1,1 @@
+import "@odjazd/worker/entry";

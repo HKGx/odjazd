@@ -1,27 +1,19 @@
-import type { Envelope, Reply, WorkerRequest, WorkerResponses } from "./protocol.ts";
+import { BrowserWorker } from "@effect/platform-browser";
+import { Context, Effect, Layer } from "effect";
+import { RpcClient } from "effect/rpc";
+import { TimetableRpcs } from "./rpc.ts";
 
-/** Promise-per-request wrapper around the timetable worker. */
-export const makeClient = (worker: Worker) => {
-  let next = 0;
-  const pending = new Map<
-    number,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >();
-  worker.addEventListener("message", (event: MessageEvent<Reply>) => {
-    const reply = event.data;
-    const waiter = pending.get(reply.id);
-    if (waiter === undefined) return;
-    pending.delete(reply.id);
-    if (reply.ok) waiter.resolve(reply.value);
-    else waiter.reject(new Error(reply.error));
-  });
+const make = RpcClient.make(TimetableRpcs);
 
-  return <R extends WorkerRequest>(request: R): Promise<WorkerResponses[R["kind"]]> =>
-    new Promise((resolve, reject) => {
-      const id = next++;
-      pending.set(id, { resolve: resolve as (value: unknown) => void, reject });
-      worker.postMessage({ id, request } satisfies Envelope);
-    });
-};
-
-export type TimetableClient = ReturnType<typeof makeClient>;
+/** Main-thread client for the timetable worker. */
+export class TimetableClient extends Context.Service<
+  TimetableClient,
+  Effect.Success<typeof make>
+>()("@odjazd/worker/client/TimetableClient") {
+  /** `spawn` creates the worker, e.g. `() => new Worker(new URL(...), { type: "module" })`. */
+  static readonly layer = (spawn: () => Worker) =>
+    Layer.effect(TimetableClient, make).pipe(
+      Layer.provide(RpcClient.layerProtocolWorker({ size: 1 })),
+      Layer.provide(BrowserWorker.layer(spawn)),
+    );
+}

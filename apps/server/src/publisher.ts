@@ -38,7 +38,7 @@ export class Publisher extends Context.Service<
     readonly feedFile: (file: string) => Option.Option<string>;
     readonly refresh: (entry: CatalogEntry) => Effect.Effect<void>;
   }
->()("odjazd/server/Publisher") {
+>()("@odjazd/server/publisher") {
   static readonly layer = (entries: ReadonlyArray<CatalogEntry>) =>
     Layer.effect(
       Publisher,

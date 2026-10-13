@@ -29,7 +29,7 @@
     "plugins": [
       {
         "name": "@effect/language-service",
-        // @effect/vitest is mandated for tests but marked unstable.
+        // Platform, HTTP, RPC and worker modules are marked unstable in Effect 4; we use them deliberately.
         "allowedUnstableApis": [
           "@effect/vitest",
           "@effect/platform-node",
@@ -37,7 +37,10 @@
           "effect/http-api",
           "effect/http",
           "effect/FileSystem",
-          "effect/Path"
+          "effect/Path",
+          "effect/rpc",
+          "effect/workers",
+          "effect/persistence"
         ],
         "diagnosticSeverity": {
           "abortControllerInEffect": "error",
