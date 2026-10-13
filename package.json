@@ -1,8 +1,12 @@
 {
   "name": "odjazd",
   "version": "1.0.0",
-  "description": "",
   "private": true,
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "module",
   "scripts": {
     "dev:web": "pnpm -F @odjazd/web dev",
     "dev:server": "pnpm -F @odjazd/server dev",
@@ -14,18 +18,6 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "12.11.2",
-      "onFail": "download"
-    }
-  },
-  "packageManager": "pnpm@12.11.2",
-  "type": "module",
   "devDependencies": {
     "@effect/tsgo": "0.51.1",
     "@effect/vitest": "4.0.4",
@@ -35,5 +27,13 @@
     "oxlint-tsgolint": "7.0.2003",
     "typescript": "7.0.2",
     "vitest": "^5.0.4"
-  }
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.11.2",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.11.2"
 }

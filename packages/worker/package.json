@@ -1,17 +1,17 @@
 {
   "name": "@odjazd/worker",
   "version": "1.0.0",
+  "private": true,
   "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "private": true,
   "dependencies": {
     "@effect/platform-browser": "4.0.4",
     "@odjazd/engine": "workspace:*",

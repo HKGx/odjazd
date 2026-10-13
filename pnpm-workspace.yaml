@@ -3,7 +3,7 @@ packages:
   - "packages/*"
   - "tools/*"
 allowBuilds:
-  '@bufbuild/buf': true
+  "@bufbuild/buf": true
 # TEMPORARY: lockfile pins versions published 2026-10-13 04:30 UTC or later, which the
 # default 24h minimumReleaseAge rejects. Delete this whole block after 2026-10-14 05:00 UTC.
 minimumReleaseAgeExclude:
