@@ -17,6 +17,7 @@
   "dependencies": {
     "@effect/platform-node": "4.0.4",
     "@effect/sql-sqlite-node": "4.0.4",
+    "@odjazd/api": "workspace:*",
     "@odjazd/cities": "workspace:*",
     "@odjazd/ingest": "workspace:*",
     "@odjazd/model": "workspace:*",

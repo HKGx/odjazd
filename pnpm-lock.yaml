@@ -199,6 +199,9 @@ importers:
       '@effect/sql-sqlite-node':
         specifier: 4.0.4
         version: 4.0.4(effect@4.0.4)
+      '@odjazd/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@odjazd/cities':
         specifier: workspace:*
         version: link:../../packages/cities
@@ -254,6 +257,18 @@ importers:
       vite:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@26.6.5)
+
+  packages/api:
+    dependencies:
+      '@odjazd/cities':
+        specifier: workspace:*
+        version: link:../cities
+      '@odjazd/model':
+        specifier: workspace:*
+        version: link:../model
+      effect:
+        specifier: 4.0.4
+        version: 4.0.4
 
   packages/cities:
     dependencies:
