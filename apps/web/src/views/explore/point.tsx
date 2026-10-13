@@ -101,6 +101,26 @@ export const PointPanel = (props: {
         when={mode()}
         fallback={
           <div class="actions">
+            <a
+              class="button"
+              href={href({
+                page: "trip",
+                from: { kind: "here" },
+                to: { kind: "at", lat: props.lat, lon: props.lon },
+              })}
+            >
+              Directions here
+            </a>
+            <a
+              class="button"
+              href={href({
+                page: "trip",
+                from: { kind: "at", lat: props.lat, lon: props.lon },
+                to: undefined,
+              })}
+            >
+              From here
+            </a>
             <button type="button" onClick={() => setMode("place")}>
               Save as place
             </button>

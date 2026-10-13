@@ -3,6 +3,7 @@ import { localToEpoch, type EpochSeconds, type LineId } from "@odjazd/model";
 import { scheduleRealization, straightLineWalking } from "@odjazd/prediction";
 import type { Timetable } from "@odjazd/timetable";
 import { makeExplorer } from "./explore.ts";
+import { makePlanner } from "./planner.ts";
 import type { BoardDto, BoardQuery, CompareQuery, ComparisonDto, LineLabel } from "./schema.ts";
 
 /** The engine bound to one loaded timetable; everything here is synchronous. */
@@ -131,7 +132,9 @@ export const makeHost = (timetable: Timetable) => {
     };
   };
 
-  return { timetable, compare, board, ...explorer };
+  const planner = makePlanner(timetable, { ...explorer, label });
+
+  return { timetable, compare, board, plan: planner.plan, ...explorer };
 };
 
 export type Host = ReturnType<typeof makeHost>;

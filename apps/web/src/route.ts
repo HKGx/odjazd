@@ -1,5 +1,47 @@
 import { createSignal } from "solid-js";
 
+/**
+ * A trip endpoint as it appears in the URL: the device's location (never put
+ * in the URL itself), a saved place, a stop group, or a point.
+ */
+export type Place =
+  | { readonly kind: "here" }
+  | { readonly kind: "place"; readonly id: string }
+  | { readonly kind: "stop"; readonly group: number }
+  | { readonly kind: "at"; readonly lat: number; readonly lon: number };
+
+const parsePlace = (text: string | undefined): Place | undefined => {
+  if (text === undefined || text === "" || text === "-") return undefined;
+  if (text === "here") return { kind: "here" };
+  const [kind, value = ""] = text.split(":");
+  if (kind === "place" && value !== "") return { kind: "place", id: value };
+  if (kind === "stop") {
+    const group = Number(value);
+    return Number.isInteger(group) && group >= 0 ? { kind: "stop", group } : undefined;
+  }
+  if (kind === "at") {
+    const [lat, lon] = value.split(",").map(Number);
+    return lat !== undefined && lon !== undefined && Number.isFinite(lat) && Number.isFinite(lon)
+      ? { kind: "at", lat, lon }
+      : undefined;
+  }
+  return undefined;
+};
+
+export const placeText = (place: Place | undefined): string => {
+  if (place === undefined) return "-";
+  switch (place.kind) {
+    case "here":
+      return "here";
+    case "place":
+      return `place:${place.id}`;
+    case "stop":
+      return `stop:${place.group}`;
+    case "at":
+      return `at:${place.lat.toFixed(5)},${place.lon.toFixed(5)}`;
+  }
+};
+
 /** Map-hosted pages share the map; the rest replace it. */
 export type Route =
   | { readonly page: "map" }
@@ -7,6 +49,7 @@ export type Route =
   | { readonly page: "line"; readonly line: string; readonly direction: number }
   | { readonly page: "vehicle"; readonly id: string }
   | { readonly page: "point"; readonly lat: number; readonly lon: number }
+  | { readonly page: "trip"; readonly from: Place | undefined; readonly to: Place | undefined }
   | { readonly page: "compare" }
   | { readonly page: "board"; readonly area: string | undefined }
   | { readonly page: "places" }
@@ -18,7 +61,8 @@ export const onMap = (route: Route): boolean =>
   route.page === "stop" ||
   route.page === "line" ||
   route.page === "vehicle" ||
-  route.page === "point";
+  route.page === "point" ||
+  route.page === "trip";
 
 const parse = (hash: string): Route => {
   const [page, arg, extra] = hash
@@ -37,6 +81,8 @@ const parse = (hash: string): Route => {
         : { page: "map" };
     case "vehicle":
       return present ? { page: "vehicle", id: arg } : { page: "map" };
+    case "trip":
+      return { page: "trip", from: parsePlace(arg), to: parsePlace(extra) };
     case "at": {
       const [lat, lon] = (arg ?? "").split(",").map(Number);
       return lat !== undefined && lon !== undefined && Number.isFinite(lat) && Number.isFinite(lon)
@@ -66,6 +112,8 @@ export const href = (route: Route): string => {
       return `#/line/${part(route.line)}${route.direction === 0 ? "" : `/${route.direction}`}`;
     case "vehicle":
       return `#/vehicle/${part(route.id)}`;
+    case "trip":
+      return `#/trip/${part(placeText(route.from))}/${part(placeText(route.to))}`;
     case "point":
       return `#/at/${route.lat.toFixed(5)},${route.lon.toFixed(5)}`;
     case "board":

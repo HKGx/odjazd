@@ -109,9 +109,29 @@ export const StopPanel = (props: {
         <p class="hit-lines">
           <For each={board().stop.lines}>{(line) => <LineBadge line={line} link small />}</For>
         </p>
-        <p>
+        <div class="actions">
+          <a
+            class="button small"
+            href={href({
+              page: "trip",
+              from: { kind: "here" },
+              to: { kind: "stop", group: board().stop.group },
+            })}
+          >
+            Directions here
+          </a>
+          <a
+            class="button small"
+            href={href({
+              page: "trip",
+              from: { kind: "stop", group: board().stop.group },
+              to: undefined,
+            })}
+          >
+            From here
+          </a>
           <AreaAction city={props.city} board={board()} />
-        </p>
+        </div>
         <Show
           when={board().departures.length > 0}
           fallback={<p class="empty">No departures in the next two hours.</p>}

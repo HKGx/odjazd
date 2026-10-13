@@ -1121,3 +1121,217 @@ button:disabled {
 .nearby .hit:hover {
   background: var(--page);
 }
+
+/* Trip planner. */
+a.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--axis);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+a.button.small {
+  min-height: 30px;
+  padding: 3px 8px;
+  font-size: 0.85rem;
+}
+
+a.button:hover {
+  background: var(--page);
+}
+
+.quick-trips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.quick-trip {
+  padding: 6px 12px;
+  border: 1px solid var(--axis);
+  border-radius: 999px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.quick-trip.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.trip h2 {
+  margin-top: 0;
+}
+
+.endpoints {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding-right: 44px;
+}
+
+.endpoint {
+  display: grid;
+  grid-template-columns: 3em 1fr;
+  align-items: start;
+  gap: 8px;
+}
+
+.endpoint-label {
+  padding-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.endpoint-value {
+  text-align: left;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.endpoint-edit input {
+  width: 100%;
+}
+
+.endpoint-options {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.endpoint-options button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swap {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+}
+
+.when-row select,
+.when-row input {
+  min-width: 8em;
+}
+
+.journeys {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.journey {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  background: var(--surface-1);
+}
+
+.journey.open {
+  border-color: var(--accent);
+}
+
+.journey-head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 10px 12px;
+}
+
+.journey-times {
+  display: flex;
+  flex-direction: column;
+}
+
+.journey-head .chips {
+  grid-column: 1 / -1;
+}
+
+.journey-meta {
+  grid-row: 1;
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: var(--text-secondary);
+}
+
+.leave-now {
+  color: var(--accent);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip-sep {
+  color: var(--text-muted);
+}
+
+.walk-chip {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.legs {
+  list-style: none;
+  margin: 0;
+  padding: 4px 12px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.leg {
+  display: grid;
+  grid-template-columns: 3.4em 1fr;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.leg-time {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.leg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.leg.walk {
+  color: var(--text-secondary);
+}
+
+.leg.ride {
+  border-left: 3px solid var(--tram);
+  padding-left: 8px;
+  margin-left: -11px;
+}

@@ -107,6 +107,8 @@ export const makeExplorer = (
     const next = new Map<number, LiveDelay>();
     for (const vehicle of vehicles) {
       if (vehicle.trip === undefined || vehicle.delay === undefined) continue;
+      // Far "early" reports are a vehicle matched to the wrong trip instance, not a fast tram.
+      if (vehicle.delay < -600) continue;
       const trip = tripOf(vehicle.trip);
       if (trip === undefined) continue;
       const day = instanceDay(trip, now);
@@ -278,5 +280,24 @@ export const makeExplorer = (
     };
   };
 
-  return { current, setLive, searchStops, allStops, nearby, stopBoard, lineRoute, trip };
+  /** The live delay of a trip instance at a stop time, if one is reported and applies. */
+  const delayAt = (trip: number, day: number, stopTime: number): number | undefined => {
+    const live = delays.get(trip);
+    return live !== undefined && live.day === day && stopTime >= live.fromStopTime
+      ? live.delay
+      : undefined;
+  };
+
+  return {
+    current,
+    setLive,
+    delayAt,
+    searchIndex,
+    searchStops,
+    allStops,
+    nearby,
+    stopBoard,
+    lineRoute,
+    trip,
+  };
 };

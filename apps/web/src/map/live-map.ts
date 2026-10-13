@@ -52,6 +52,14 @@ export interface Pin {
   readonly radiusMeters?: number | undefined;
 }
 
+export interface JourneyShape {
+  readonly legs: ReadonlyArray<{
+    readonly kind: "walk" | "ride";
+    readonly mode?: string | undefined;
+    readonly path: ReadonlyArray<{ readonly lat: number; readonly lon: number }>;
+  }>;
+}
+
 /** A circle as a 48-gon; fine at city scale. */
 const circle = (lat: number, lon: number, radiusMeters: number) => {
   const dLat = radiusMeters / 111_320;
@@ -122,6 +130,7 @@ export class LiveMap {
   private dark: boolean;
   private user: UserLayers = { areas: [], places: [] };
   private pin: Pin | undefined;
+  private journey: JourneyShape | undefined;
   private bottomInset = 0;
   /** Last point we centered, until the user moves the map themselves. */
   private target: { lat: number; lon: number; zoom: number | undefined } | undefined;
@@ -215,6 +224,7 @@ export class LiveMap {
     map.addSource("user-places", { type: "geojson", data: empty });
     map.addSource("pin", { type: "geojson", data: empty });
     map.addSource("stops", { type: "geojson", data: empty });
+    map.addSource("journey", { type: "geojson", data: empty });
 
     map.addLayer({
       id: "user-areas",
@@ -285,6 +295,43 @@ export class LiveMap {
       source: "route",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: { "line-color": accent, "line-width": 4, "line-opacity": 0.85 },
+    });
+    map.addLayer({
+      id: "journey-walk",
+      type: "line",
+      source: "journey",
+      filter: ["==", ["get", "kind"], "walk"],
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": text,
+        "line-width": 3,
+        "line-dasharray": [0.5, 2],
+        "line-opacity": 0.7,
+      },
+    });
+    map.addLayer({
+      id: "journey-ride",
+      type: "line",
+      source: "journey",
+      filter: ["==", ["get", "kind"], "ride"],
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": ["case", ["==", ["get", "mode"], "tram"], tram, bus],
+        "line-width": 6,
+        "line-opacity": 0.9,
+      },
+    });
+    map.addLayer({
+      id: "journey-points",
+      type: "circle",
+      source: "journey",
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-radius": 5,
+        "circle-color": surface,
+        "circle-stroke-color": text,
+        "circle-stroke-width": 2,
+      },
     });
     map.addLayer({
       id: "route-stops",
@@ -389,6 +436,7 @@ export class LiveMap {
     });
 
     this.ready = true;
+    this.drawJourney();
     this.drawUser();
     this.drawStops();
     this.drawRoute();
@@ -445,6 +493,40 @@ export class LiveMap {
               },
             ],
     });
+  }
+
+  /** A planned journey, drawn over the map; `undefined` clears it. */
+  setJourney(journey: JourneyShape | undefined) {
+    this.journey = journey;
+    this.drawJourney();
+  }
+
+  private drawJourney() {
+    if (!this.ready) return;
+    const legs = this.journey?.legs ?? [];
+    const lines = legs
+      .filter((leg) => leg.path.length >= 2)
+      .map((leg) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "LineString" as const,
+          coordinates: leg.path.map((p) => [p.lon, p.lat]),
+        },
+        properties: { kind: leg.kind, mode: leg.mode ?? "" },
+      }));
+    // Ends of each ride: where to get on and off.
+    const points = legs
+      .filter((leg) => leg.kind === "ride")
+      .flatMap((leg) => [leg.path[0], leg.path[leg.path.length - 1]])
+      .filter((p) => p !== undefined)
+      .map((p) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+        properties: { kind: "stop" },
+      }));
+    this.map
+      .getSource<GeoJSONSource>("journey")
+      ?.setData({ type: "FeatureCollection", features: [...lines, ...points] });
   }
 
   setStops(stops: StopsDto) {

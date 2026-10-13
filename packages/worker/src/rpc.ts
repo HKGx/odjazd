@@ -12,6 +12,8 @@ import {
   LoadResult,
   NearbyDto,
   NearbyQuery,
+  PlanDto,
+  PlanQuery,
   SearchHitDto,
   SearchQuery,
   StopBoardDto,
@@ -52,6 +54,7 @@ export class TimetableRpcs extends RpcGroup.make(
     success: Schema.OptionFromNullOr(LineRouteDto),
     error: TimetableNotLoaded,
   }),
+  Rpc.make("Plan", { payload: PlanQuery, success: PlanDto, error: TimetableNotLoaded }),
   Rpc.make("Trip", {
     payload: TripQuery,
     success: Schema.OptionFromNullOr(TripDto),

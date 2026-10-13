@@ -1,5 +1,5 @@
 import type { CitySummary } from "@odjazd/api";
-import { type LiveDto, type LoadResult, TimetableClient } from "@odjazd/worker";
+import { type LiveDto, type LoadResult, type StopsDto, TimetableClient } from "@odjazd/worker";
 import { Effect, Option } from "effect";
 import {
   type Accessor,
@@ -7,6 +7,7 @@ import {
   createMemo,
   createSignal,
   Errored,
+  For,
   Loading,
   Match,
   Show,
@@ -16,10 +17,11 @@ import {
 import { createEffectMemo } from "../../effect-solid.ts";
 import type { LiveMap } from "../../map/live-map.ts";
 import { now } from "../../now.ts";
-import { navigate, route } from "../../route.ts";
+import { href, navigate, route } from "../../route.ts";
 import { kindIcon, useCity } from "../../user.ts";
 import { LinePanel } from "./line.tsx";
 import { PointPanel } from "./point.tsx";
+import { TripPanel } from "./trip.tsx";
 import { ago } from "./parts.tsx";
 import { SearchBox } from "./search.tsx";
 import { StopPanel } from "./stop.tsx";
@@ -92,9 +94,14 @@ export const ExploreView = (props: {
     const request = { hash: hash() };
     return TimetableClient.use((worker) => worker.Stops(request));
   });
+  // A non-suspending copy for panels that only need names and positions.
+  const [stopsReady, setStopsReady] = createSignal<StopsDto>();
   createEffect(
     () => [map(), stops()] as const,
-    ([m, s]) => m?.setStops(s),
+    ([m, s]) => {
+      setStopsReady(s);
+      m?.setStops(s);
+    },
   );
   createEffect(
     () => [map(), props.live()] as const,
@@ -170,6 +177,28 @@ export const ExploreView = (props: {
             <Switch
               fallback={
                 <div class="panel-body hint">
+                  <div class="quick-trips">
+                    <For each={records().places}>
+                      {(place) => (
+                        <a
+                          class="quick-trip"
+                          href={href({
+                            page: "trip",
+                            from: { kind: "here" },
+                            to: { kind: "place", id: place.id },
+                          })}
+                        >
+                          {kindIcon[place.kind]} {place.name}
+                        </a>
+                      )}
+                    </For>
+                    <a
+                      class="quick-trip primary"
+                      href={href({ page: "trip", from: { kind: "here" }, to: undefined })}
+                    >
+                      Plan a trip
+                    </a>
+                  </div>
                   <p>Tap a vehicle or a stop on the map, or search above.</p>
                   <p class="muted small">
                     Long-press (or right-click) anywhere to save a place or an interchange area
@@ -233,6 +262,25 @@ export const ExploreView = (props: {
                     hash={hash()}
                     id={r().id}
                     timeZone={props.loaded.timeZone}
+                    live={props.live}
+                    map={map}
+                  />
+                )}
+              </Match>
+              <Match
+                when={(() => {
+                  const r = route();
+                  return r.page === "trip" ? r : undefined;
+                })()}
+              >
+                {(r) => (
+                  <TripPanel
+                    hash={hash()}
+                    city={props.city.id}
+                    timeZone={props.loaded.timeZone}
+                    from={r().from}
+                    to={r().to}
+                    stops={stopsReady}
                     live={props.live}
                     map={map}
                   />
