@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@solidjs/vite-plugin": "3.0.0-next.35",
+    "@types/geojson": "^7946.0.16",
     "vite": "^8.3.4"
   }
 }

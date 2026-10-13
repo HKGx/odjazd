@@ -1,5 +1,5 @@
-import { Cause, Effect, Exit, Option } from "effect";
-import { createMemo, onCleanup } from "solid-js";
+import { Cause, Effect, Exit, Fiber, Option, Stream } from "effect";
+import { type Accessor, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { type AppServices, runtime } from "./runtime.ts";
 
 /** An Effect failure surfaced to a Solid `<Errored>` boundary. */
@@ -41,3 +41,29 @@ export const createEffectMemo = <A, E>(build: () => Effect.Effect<A, E, AppServi
 /** Fire-and-forget an Effect from an event handler. */
 export const runFork = <A, E>(effect: Effect.Effect<A, E, AppServices>) =>
   runtime.runFork(effect.pipe(Effect.tapCause((cause) => Effect.logError(cause))));
+
+/**
+ * A signal fed by an Effect stream on the app runtime. `build` runs tracked;
+ * when its dependencies change (or the owner is disposed) the running stream
+ * is interrupted and, if needed, a new one started. Stream failures are logged.
+ */
+export const createEffectStream = <A, E>(
+  build: () => Stream.Stream<A, E, AppServices> | undefined,
+  initial: A,
+): Accessor<A> => {
+  // Boxed: a function-valued A would otherwise read as a derived signal.
+  const [box, setBox] = createSignal<{ readonly value: A }>({ value: initial });
+  createEffect(
+    () => build(),
+    (stream) => {
+      if (stream === undefined) return;
+      const fiber = runFork(
+        Stream.runForEach(stream, (a) => Effect.sync(() => setBox({ value: a }))),
+      );
+      return () => {
+        runtime.runFork(Fiber.interrupt(fiber));
+      };
+    },
+  );
+  return () => box().value;
+};

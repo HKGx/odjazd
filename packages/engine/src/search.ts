@@ -147,7 +147,7 @@ export const search = (
     const tokens = name.split(" ");
     if (!words.every((word) => tokens.some((token) => token.startsWith(word)))) return;
     let score = name === q ? 90 : name.startsWith(q) ? 70 : 40;
-    score += Math.min(10, group.lines.length) / 2;
+    score += Math.min(24, group.lines.length) / 2;
     if (near !== undefined) {
       const km = distanceMeters(near.lat, near.lon, group.lat, group.lon) / 1000;
       score += Math.max(0, 10 - km);

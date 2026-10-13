@@ -1,36 +1,65 @@
 import type { CityList, CitySummary } from "@odjazd/api";
 import { seedIntent } from "@odjazd/user-data";
-import { TimetableClient } from "@odjazd/worker";
-import { Schema } from "effect";
-import { createMemo, Errored, For, isPending, Loading, Match, Show, Switch } from "solid-js";
-import { createEffectMemo } from "./effect-solid.ts";
+import { type LiveDto, TimetableClient } from "@odjazd/worker";
+import { Effect, Schema, Stream } from "effect";
+import {
+  createMemo,
+  createSignal,
+  Errored,
+  For,
+  isPending,
+  Loading,
+  Match,
+  onCleanup,
+  Show,
+  Switch,
+} from "solid-js";
+import { createEffectMemo, createEffectStream } from "./effect-solid.ts";
 import { megabytes } from "./format.ts";
 import { persisted } from "./prefs.ts";
-import { href, route } from "./route.ts";
+import { href, onMap, route } from "./route.ts";
 import { AboutView } from "./views/about.tsx";
 import { BoardView } from "./views/board.tsx";
 import { CompareView } from "./views/compare.tsx";
+import { ExploreView, prefersDark } from "./views/explore/explore.tsx";
 import { Api } from "./runtime.ts";
+
+const sections = [
+  { page: "map", label: "Map" },
+  { page: "compare", label: "Compare" },
+  { page: "board", label: "Areas" },
+  { page: "about", label: "About" },
+] as const;
 
 const Nav = () => (
   <nav aria-label="Sections">
-    <a
-      href={href({ page: "compare" })}
-      aria-current={route().page === "compare" ? "page" : undefined}
-    >
-      Compare
-    </a>
-    <a
-      href={href({ page: "board", area: undefined })}
-      aria-current={route().page === "board" ? "page" : undefined}
-    >
-      Departures
-    </a>
-    <a href={href({ page: "about" })} aria-current={route().page === "about" ? "page" : undefined}>
-      About
-    </a>
+    <For each={sections}>
+      {(section) => (
+        <a
+          href={href(
+            section.page === "board" ? { page: "board", area: undefined } : { page: section.page },
+          )}
+          aria-current={
+            (section.page === "map" ? onMap(route()) : route().page === section.page)
+              ? "page"
+              : undefined
+          }
+        >
+          {section.label}
+        </a>
+      )}
+    </For>
   </nav>
 );
+
+const useDark = () => {
+  const query = prefersDark();
+  const [dark, setDark] = createSignal(query.matches);
+  const listener = (event: MediaQueryListEvent) => setDark(event.matches);
+  query.addEventListener("change", listener);
+  onCleanup(() => query.removeEventListener("change", listener));
+  return dark;
+};
 
 const Failure = (props: { error: unknown; reset: () => void }) => (
   <div class="card failure" role="alert">
@@ -50,6 +79,12 @@ const City = (props: { city: CitySummary }) => {
     return TimetableClient.use((worker) => worker.Load({ city }));
   });
   const intent = createMemo(() => seedIntent(props.city.id));
+  const initialLive: LiveDto = { status: "connecting", fetchedAt: 0, vehicles: [] };
+  const live = createEffectStream(() => {
+    const city = props.city.id;
+    return Stream.unwrap(TimetableClient.use((worker) => Effect.succeed(worker.Live({ city }))));
+  }, initialLive);
+  const dark = useDark();
   return (
     <Loading
       fallback={
@@ -68,6 +103,9 @@ const City = (props: { city: CitySummary }) => {
         </p>
       </Show>
       <Switch>
+        <Match when={onMap(route())}>
+          <ExploreView city={props.city} loaded={loaded()} live={live} dark={dark} />
+        </Match>
         <Match when={route().page === "compare"}>
           <CompareView loaded={loaded()} intent={intent()} />
         </Match>
@@ -109,7 +147,7 @@ const Shell = (props: { cities: CityList }) => {
   return (
     <>
       <header>
-        <a class="brand" href={href({ page: "compare" })}>
+        <a class="brand" href={href({ page: "map" })}>
           odjazd
         </a>
         <Show when={props.cities.cities.length > 1}>
@@ -131,7 +169,7 @@ const Shell = (props: { cities: CityList }) => {
         </Show>
         <Nav />
       </header>
-      <main>
+      <main class={onMap(route()) ? "full" : undefined}>
         <Show when={city()} keyed fallback={<p class="empty">No cities are available yet.</p>}>
           {(selected) => (
             <Errored fallback={(error, reset) => <Failure error={error()} reset={reset} />}>
