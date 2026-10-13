@@ -29,6 +29,8 @@
     "plugins": [
       {
         "name": "@effect/language-service",
+        // @effect/vitest is mandated for tests but marked unstable.
+        "allowedUnstableApis": ["@effect/vitest"],
         "diagnosticSeverity": {
           "abortControllerInEffect": "error",
           "acquireReleaseDisposable": "error",
@@ -72,7 +74,7 @@
           "matchEffectToMatch": "error",
           "missedPipeableOpportunity": "warning",
           "missingEffectServiceDependency": "warning",
-          "missingPipeableSignature": "warning",
+          "missingPipeableSignature": "off",
           "multipleCatchTag": "error",
           "multipleEffectProvide": "error",
           "nestedEffectGenYield": "warning",
