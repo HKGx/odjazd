@@ -2,11 +2,12 @@ import { compareCorridors, departuresFromArea, resolveArea } from "@odjazd/engin
 import { localToEpoch, type EpochSeconds, type LineId } from "@odjazd/model";
 import { scheduleRealization, straightLineWalking } from "@odjazd/prediction";
 import type { Timetable } from "@odjazd/timetable";
+import { makeExplorer } from "./explore.ts";
 import type { BoardDto, BoardQuery, CompareQuery, ComparisonDto, LineLabel } from "./schema.ts";
 
 /** The engine bound to one loaded timetable; everything here is synchronous. */
 export const makeHost = (timetable: Timetable) => {
-  const realization = scheduleRealization(timetable);
+  const schedule = scheduleRealization(timetable);
   const walking = straightLineWalking();
   const lineIndex = new Map(timetable.lines.map((line) => [line.id, line]));
 
@@ -21,6 +22,7 @@ export const makeHost = (timetable: Timetable) => {
     return timetable.trips.headsigns[tripOf.get(tripFeedId) ?? -1] ?? "";
   };
   const stopName = (stop: number) => timetable.stops.names[stop] ?? "?";
+  const explorer = makeExplorer(timetable, schedule, label);
 
   const dayIndex = (date: string) => {
     const first = Date.parse(`${timetable.days.first}T00:00:00Z`);
@@ -48,7 +50,7 @@ export const makeHost = (timetable: Timetable) => {
     const comparison = compareCorridors(
       {
         timetable,
-        realization,
+        realization: explorer.current(),
         walking,
         transferBufferSec: request.transferBufferSec,
         nonPreferredPenaltySec: 0,
@@ -108,7 +110,7 @@ export const makeHost = (timetable: Timetable) => {
     const resolved = resolveArea(timetable, area);
     const departures = departuresFromArea(
       timetable,
-      realization,
+      explorer.current(),
       area,
       request.at as EpochSeconds,
       request.horizonMinutes * 60,
@@ -128,7 +130,7 @@ export const makeHost = (timetable: Timetable) => {
     };
   };
 
-  return { timetable, compare, board };
+  return { timetable, compare, board, ...explorer };
 };
 
 export type Host = ReturnType<typeof makeHost>;

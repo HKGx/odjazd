@@ -1,11 +1,17 @@
 import { CityManifest, OdjazdApi } from "@odjazd/api";
 import type { CityId } from "@odjazd/model";
 import { decodeTimetable } from "@odjazd/timetable";
-import { Effect, Option, Ref, Schema } from "effect";
+import type { Vehicle } from "@odjazd/api";
+import { Clock, Effect, Option, Ref, Schedule, Schema, Stream, SubscriptionRef } from "effect";
 import { HttpApiClient } from "effect/http-api";
 import { makeHost, type Host } from "./host.ts";
 import { TimetableRpcs } from "./rpc.ts";
-import { type LoadResult, TimetableNotLoaded, TimetableUnavailable } from "./schema.ts";
+import {
+  type LiveDto,
+  type LoadResult,
+  TimetableNotLoaded,
+  TimetableUnavailable,
+} from "./schema.ts";
 import { TimetableStore } from "./store.ts";
 
 const lastDate = (first: string, count: number) =>
@@ -23,6 +29,7 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
       );
       const store = yield* TimetableStore;
       const loaded = yield* Ref.make(new Map<CityId, { hash: string; host: Host }>());
+      const lives = new Map<CityId, SubscriptionRef.SubscriptionRef<LiveDto>>();
 
       const manifestFor = Effect.fn("Timetable.manifest")(function* (city: CityId) {
         // A 404 is definitive; anything else (offline, server down) falls back to the device copy.
@@ -78,6 +85,11 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
           });
           host = makeHost(timetable);
           const made = host;
+          const live = lives.get(city);
+          if (live !== undefined) {
+            const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+            made.setLive((yield* SubscriptionRef.get(live)).vehicles, now);
+          }
           yield* Ref.update(loaded, (map) =>
             new Map(map).set(city, { hash: manifest.timetable.hash, host: made }),
           );
@@ -105,10 +117,66 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
           return Effect.fail(TimetableNotLoaded.make({ hash }));
         });
 
+      // One upstream SSE connection per city, shared by every Live subscriber.
+      const scope = yield* Effect.scope;
+      const liveFor = Effect.fn("Timetable.live")(function* (city: CityId) {
+        const existing = lives.get(city);
+        if (existing !== undefined) return existing;
+        const state = yield* SubscriptionRef.make<LiveDto>({
+          status: "connecting",
+          fetchedAt: 0,
+          vehicles: [],
+        });
+        lives.set(city, state);
+        const vehicles = new Map<string, Vehicle>();
+
+        const publish = (fetchedAt: number) =>
+          Effect.gen(function* () {
+            const list = [...vehicles.values()];
+            const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+            (yield* Ref.get(loaded)).get(city)?.host.setLive(list, now);
+            yield* SubscriptionRef.set(state, { status: "live", fetchedAt, vehicles: list });
+          });
+
+        const connect = api.realtime.stream({ params: { city } }).pipe(
+          Effect.flatMap(
+            Stream.runForEach((event) => {
+              if (event._tag === "Snapshot") {
+                vehicles.clear();
+                for (const v of event.snapshot.vehicles) vehicles.set(v.id, v);
+                return publish(event.snapshot.fetchedAt);
+              }
+              for (const id of event.removed) vehicles.delete(id);
+              for (const v of event.upserts) vehicles.set(v.id, v);
+              return publish(event.fetchedAt);
+            }),
+          ),
+          Effect.catchCause((cause) => Effect.logWarning("live: connection lost", cause)),
+          Effect.andThen(
+            SubscriptionRef.update(state, (live) => ({ ...live, status: "offline" as const })),
+          ),
+        );
+        yield* connect.pipe(
+          Effect.repeat({ schedule: Schedule.spaced("5 seconds") }),
+          Effect.forkIn(scope),
+        );
+        return state;
+      });
+
+      const withHost = <A>(hash: string, f: (host: Host) => A) => Effect.map(hostFor(hash), f);
+
       return TimetableRpcs.of({
         Load: ({ city }) => load(city),
-        Compare: (query) => Effect.map(hostFor(query.hash), (host) => host.compare(query)),
-        Board: (query) => Effect.map(hostFor(query.hash), (host) => host.board(query)),
+        Compare: (query) => withHost(query.hash, (host) => host.compare(query)),
+        Board: (query) => withHost(query.hash, (host) => host.board(query)),
+        Search: (query) => withHost(query.hash, (host) => host.searchStops(query)),
+        Stops: ({ hash }) => withHost(hash, (host) => host.allStops()),
+        Nearby: (query) => withHost(query.hash, (host) => host.nearby(query)),
+        StopBoard: (query) => withHost(query.hash, (host) => host.stopBoard(query)),
+        LineRoute: (query) =>
+          withHost(query.hash, (host) => Option.fromUndefinedOr(host.lineRoute(query))),
+        Trip: (query) => withHost(query.hash, (host) => Option.fromUndefinedOr(host.trip(query))),
+        Live: ({ city }) => Stream.unwrap(Effect.map(liveFor(city), SubscriptionRef.changes)),
       });
     }),
   );

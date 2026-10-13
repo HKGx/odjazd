@@ -1,4 +1,4 @@
-import { CityManifest } from "@odjazd/api";
+import { CityManifest, Vehicle } from "@odjazd/api";
 import { Corridor, InterchangeArea, Mode, ServiceDate, TimeZone } from "@odjazd/model";
 import { Schema } from "effect";
 
@@ -131,6 +131,138 @@ export const BoardQuery = Schema.Struct({
   limit: Schema.Int,
 });
 export type BoardQuery = typeof BoardQuery.Type;
+
+/** A named cluster of platforms (one search hit, one map marker). */
+export const StopGroupDto = Schema.Struct({
+  group: Schema.Int,
+  name: Schema.String,
+  lat: Schema.Finite,
+  lon: Schema.Finite,
+  lines: Schema.Array(LineLabel),
+});
+export type StopGroupDto = typeof StopGroupDto.Type;
+
+export const SearchQuery = Schema.Struct({
+  hash: Hash,
+  text: Schema.String,
+  limit: Schema.Int,
+  near: Schema.optionalKey(Schema.Struct({ lat: Schema.Finite, lon: Schema.Finite })),
+});
+export type SearchQuery = typeof SearchQuery.Type;
+
+export const SearchHitDto = Schema.Union([
+  Schema.TaggedStruct("Stop", { stop: StopGroupDto }),
+  Schema.TaggedStruct("Line", { line: LineLabel, headsigns: Schema.Array(Schema.String) }),
+]);
+export type SearchHitDto = typeof SearchHitDto.Type;
+
+/** Compact list of every stop group, for the map layer. */
+export const StopsDto = Schema.Struct({
+  names: Schema.Array(Schema.String),
+  lat: Schema.Array(Schema.Finite),
+  lon: Schema.Array(Schema.Finite),
+  /** Bit 1: served by tram; bit 2: served by anything else. */
+  modes: Schema.Array(Schema.Int),
+});
+export type StopsDto = typeof StopsDto.Type;
+
+export const NearbyQuery = Schema.Struct({
+  hash: Hash,
+  lat: Schema.Finite,
+  lon: Schema.Finite,
+  radiusMeters: Schema.Finite,
+  limit: Schema.Int,
+});
+export type NearbyQuery = typeof NearbyQuery.Type;
+
+export const NearbyDto = Schema.Array(
+  Schema.Struct({ stop: StopGroupDto, distanceMeters: Schema.Finite }),
+);
+export type NearbyDto = typeof NearbyDto.Type;
+
+export const DepartureDto = Schema.Struct({
+  ...LineLabel.fields,
+  headsign: Schema.String,
+  /** Platform name, and its index for telling platforms of one group apart. */
+  stop: Schema.String,
+  platform: Schema.Int,
+  /** Expected departure (live where reported, else scheduled). */
+  departAt: Epoch,
+  scheduledAt: Epoch,
+  /** Live delay in seconds, when the trip reports one. */
+  delay: Schema.optionalKey(Schema.Finite),
+  trip: Schema.String,
+});
+export type DepartureDto = typeof DepartureDto.Type;
+
+export const StopBoardQuery = Schema.Struct({
+  hash: Hash,
+  group: Schema.Int,
+  at: Epoch,
+  horizonMinutes: Schema.Int,
+  limit: Schema.Int,
+});
+export type StopBoardQuery = typeof StopBoardQuery.Type;
+
+export const StopBoardDto = Schema.Struct({
+  stop: StopGroupDto,
+  platforms: Schema.Array(
+    Schema.Struct({ platform: Schema.Int, lat: Schema.Finite, lon: Schema.Finite }),
+  ),
+  departures: Schema.Array(DepartureDto),
+});
+export type StopBoardDto = typeof StopBoardDto.Type;
+
+export const LineRouteQuery = Schema.Struct({ hash: Hash, line: Schema.String });
+export type LineRouteQuery = typeof LineRouteQuery.Type;
+
+const RouteStop = Schema.Struct({
+  group: Schema.Int,
+  name: Schema.String,
+  lat: Schema.Finite,
+  lon: Schema.Finite,
+});
+
+/** The most common stop sequence per direction. */
+export const LineRouteDto = Schema.Struct({
+  line: LineLabel,
+  directions: Schema.Array(
+    Schema.Struct({ headsign: Schema.String, trips: Schema.Int, stops: Schema.Array(RouteStop) }),
+  ),
+});
+export type LineRouteDto = typeof LineRouteDto.Type;
+
+export const TripQuery = Schema.Struct({ hash: Hash, trip: Schema.String, at: Epoch });
+export type TripQuery = typeof TripQuery.Type;
+
+export const TripDto = Schema.Struct({
+  line: LineLabel,
+  headsign: Schema.String,
+  stops: Schema.Array(
+    Schema.Struct({
+      ...RouteStop.fields,
+      sequence: Schema.Int,
+      scheduledAt: Epoch,
+      expectedAt: Epoch,
+    }),
+  ),
+  /** Live delay applied from `fromSequence` onward, if reported. */
+  delay: Schema.optionalKey(Schema.Finite),
+  fromSequence: Schema.optionalKey(Schema.Int),
+});
+export type TripDto = typeof TripDto.Type;
+
+export const LiveStatus = Schema.Literals(["connecting", "live", "offline"]);
+export type LiveStatus = typeof LiveStatus.Type;
+
+/** Every vehicle the worker knows about, after each realtime update. */
+export const LiveDto = Schema.Struct({
+  status: LiveStatus,
+  /** Server fetch time of the newest data, epoch seconds (0 before any). */
+  fetchedAt: Epoch,
+  vehicles: Schema.Array(Vehicle),
+});
+export type LiveDto = typeof LiveDto.Type;
 
 /** Neither the network nor the device has a timetable for the city. */
 export class TimetableUnavailable extends Schema.TaggedError<TimetableUnavailable>()(
