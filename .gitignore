@@ -1,1 +1,7 @@
+node_modules
+dist
+data/
 plans/
+coverage
+.env*
+*.tsbuildinfo

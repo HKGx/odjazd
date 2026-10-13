@@ -1,0 +1,39 @@
+{
+  "name": "odjazd",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm -F @odjazd/web dev",
+    "dev:server": "pnpm -F @odjazd/server dev",
+    "build": "pnpm -r build",
+    "prepare": "effect-tsgo patch --typescript --oxlint",
+    "typecheck": "tsc && pnpm -r typecheck",
+    "test": "vitest run",
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.11.2",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.11.2",
+  "type": "module",
+  "devDependencies": {
+    "@effect/tsgo": "0.51.1",
+    "@effect/vitest": "4.0.4",
+    "@types/node": "^26.6.5",
+    "oxfmt": "^0.73.0",
+    "oxlint": "1.87.0",
+    "oxlint-tsgolint": "7.0.2003",
+    "typescript": "7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

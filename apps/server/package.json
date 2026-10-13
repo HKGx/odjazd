@@ -1,0 +1,26 @@
+{
+  "name": "@odjazd/server",
+  "version": "1.0.0",
+  "description": "",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts",
+    "typecheck": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@effect/platform-node": "4.0.4",
+    "@effect/sql-sqlite-node": "4.0.4",
+    "@odjazd/cities": "workspace:*",
+    "@odjazd/ingest": "workspace:*",
+    "@odjazd/model": "workspace:*",
+    "@odjazd/timetable": "workspace:*",
+    "effect": "4.0.4"
+  }
+}

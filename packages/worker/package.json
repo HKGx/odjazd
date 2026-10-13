@@ -1,0 +1,24 @@
+{
+  "name": "@odjazd/worker",
+  "version": "1.0.0",
+  "description": "",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@effect/platform-browser": "4.0.4",
+    "@odjazd/engine": "workspace:*",
+    "@odjazd/model": "workspace:*",
+    "@odjazd/prediction": "workspace:*",
+    "@odjazd/timetable": "workspace:*",
+    "@odjazd/user-data": "workspace:*",
+    "effect": "4.0.4"
+  }
+}

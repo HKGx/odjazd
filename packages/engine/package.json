@@ -1,0 +1,20 @@
+{
+  "name": "@odjazd/engine",
+  "version": "1.0.0",
+  "description": "",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@odjazd/model": "workspace:*",
+    "@odjazd/prediction": "workspace:*",
+    "@odjazd/timetable": "workspace:*"
+  }
+}

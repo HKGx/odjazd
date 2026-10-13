@@ -1,0 +1,29 @@
+{
+  "name": "@odjazd/ingest",
+  "version": "1.0.0",
+  "description": "",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@odjazd/cities": "workspace:*",
+    "@odjazd/model": "workspace:*",
+    "@odjazd/timetable": "workspace:*",
+    "csv-parse": "^7.0.3",
+    "effect": "4.0.4",
+    "fflate": "^0.8.3",
+    "temporal-polyfill": "^1.0.5"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.73.0",
+    "@bufbuild/protoc-gen-es": "^2.16.0"
+  }
+}
