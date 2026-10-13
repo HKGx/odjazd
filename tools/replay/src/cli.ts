@@ -18,7 +18,7 @@ import {
 } from "@odjazd/model";
 import { scheduleRealization, straightLineWalking } from "@odjazd/prediction";
 import { Effect, Schema } from "effect";
-import { lodzAreas, lodzCorridors } from "./fixtures/pl-lodz.ts";
+import { lodzAreas, lodzCorridors } from "@odjazd/user-data";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,

@@ -5,7 +5,7 @@ import { resolveArea } from "@odjazd/engine";
 import { ingestGtfsZip } from "@odjazd/ingest";
 import { InterchangeArea } from "@odjazd/model";
 import { Effect, Schema } from "effect";
-import { lodzAreas } from "./fixtures/pl-lodz.ts";
+import { lodzAreas } from "@odjazd/user-data";
 
 // Real-feed check: ODJAZD_LODZ_GTFS=/path/to/GTFS.zip pnpm test
 const zipPath = process.env["ODJAZD_LODZ_GTFS"];

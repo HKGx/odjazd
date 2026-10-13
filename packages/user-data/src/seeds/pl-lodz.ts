@@ -1,6 +1,6 @@
 import type { Corridor, InterchangeArea } from "@odjazd/model";
 
-// Phase 1 interchange areas, hand-defined. Radii sit in the gap between each
+// Seed intent for pl-lodz: Phase 1 interchange areas, hand-defined. Radii sit in the gap between each
 // stop cluster and the next stops out (checked against the 2026-10-13 feed).
 export const lodzAreas: ReadonlyArray<typeof InterchangeArea.Encoded> = [
   {
