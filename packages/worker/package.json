@@ -7,13 +7,17 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./entry": "./src/entry.ts"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc"
   },
   "dependencies": {
     "@effect/platform-browser": "4.0.4",
+    "@odjazd/api": "workspace:*",
     "@odjazd/engine": "workspace:*",
     "@odjazd/model": "workspace:*",
     "@odjazd/prediction": "workspace:*",
