@@ -25,3 +25,16 @@ export const bboxContains = (box: BoundingBox, point: LatLon): boolean =>
   point.lat <= box.north &&
   point.lon >= box.west &&
   point.lon <= box.east;
+
+const earthRadiusMeters = 6_371_008.8;
+const toRadians = Math.PI / 180;
+
+/** Great-circle distance in meters (haversine). */
+export const distanceMeters = (aLat: number, aLon: number, bLat: number, bLon: number): number => {
+  const dLat = (bLat - aLat) * toRadians;
+  const dLon = (bLon - aLon) * toRadians;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(aLat * toRadians) * Math.cos(bLat * toRadians) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusMeters * Math.asin(Math.min(1, Math.sqrt(h)));
+};

@@ -381,6 +381,9 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.4
         version: 4.0.4(effect@4.0.4)(redis@6.3.0)
+      '@odjazd/cities':
+        specifier: workspace:*
+        version: link:../../packages/cities
       '@odjazd/engine':
         specifier: workspace:*
         version: link:../../packages/engine

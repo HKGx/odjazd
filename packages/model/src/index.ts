@@ -1,3 +1,4 @@
+export * from "./area.ts";
 export * from "./geo.ts";
 export * from "./ids.ts";
 export * from "./line.ts";
