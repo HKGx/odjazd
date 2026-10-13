@@ -6,6 +6,7 @@ export type Route =
   | { readonly page: "stop"; readonly group: number }
   | { readonly page: "line"; readonly line: string; readonly direction: number }
   | { readonly page: "vehicle"; readonly id: string }
+  | { readonly page: "point"; readonly lat: number; readonly lon: number }
   | { readonly page: "compare" }
   | { readonly page: "board"; readonly area: string | undefined }
   | { readonly page: "places" }
@@ -16,7 +17,8 @@ export const onMap = (route: Route): boolean =>
   route.page === "map" ||
   route.page === "stop" ||
   route.page === "line" ||
-  route.page === "vehicle";
+  route.page === "vehicle" ||
+  route.page === "point";
 
 const parse = (hash: string): Route => {
   const [page, arg, extra] = hash
@@ -35,6 +37,12 @@ const parse = (hash: string): Route => {
         : { page: "map" };
     case "vehicle":
       return present ? { page: "vehicle", id: arg } : { page: "map" };
+    case "at": {
+      const [lat, lon] = (arg ?? "").split(",").map(Number);
+      return lat !== undefined && lon !== undefined && Number.isFinite(lat) && Number.isFinite(lon)
+        ? { page: "point", lat, lon }
+        : { page: "map" };
+    }
     case "board":
       return { page: "board", area: present ? arg : undefined };
     case "compare":
@@ -58,6 +66,8 @@ export const href = (route: Route): string => {
       return `#/line/${part(route.line)}${route.direction === 0 ? "" : `/${route.direction}`}`;
     case "vehicle":
       return `#/vehicle/${part(route.id)}`;
+    case "point":
+      return `#/at/${route.lat.toFixed(5)},${route.lon.toFixed(5)}`;
     case "board":
       return `#/board${route.area === undefined ? "" : `/${part(route.area)}`}`;
     default:

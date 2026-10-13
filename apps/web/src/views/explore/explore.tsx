@@ -17,7 +17,9 @@ import { createEffectMemo } from "../../effect-solid.ts";
 import type { LiveMap } from "../../map/live-map.ts";
 import { now } from "../../now.ts";
 import { navigate, route } from "../../route.ts";
+import { kindIcon, useCity } from "../../user.ts";
 import { LinePanel } from "./line.tsx";
+import { PointPanel } from "./point.tsx";
 import { ago } from "./parts.tsx";
 import { SearchBox } from "./search.tsx";
 import { StopPanel } from "./stop.tsx";
@@ -49,6 +51,7 @@ export const ExploreView = (props: {
         dark: untrack(props.dark),
         onStop: (group) => navigate({ page: "stop", group }),
         onVehicle: (id) => navigate({ page: "vehicle", id }),
+        onPoint: (lat, lon) => navigate({ page: "point", lat, lon }),
         onBackground: () => {
           if (route().page !== "map") navigate({ page: "map" });
         },
@@ -100,6 +103,20 @@ export const ExploreView = (props: {
   createEffect(
     () => [map(), props.dark()] as const,
     ([m, dark]) => m?.setDark(dark),
+  );
+
+  const records = useCity(() => props.city.id);
+  createEffect(
+    () => [map(), records()] as const,
+    ([m, r]) =>
+      m?.setUserLayers({
+        areas: r.areas.map((record) => record.area),
+        places: r.places.map((place) => ({
+          name: place.name,
+          icon: kindIcon[place.kind],
+          point: place.point,
+        })),
+      }),
   );
 
   const lineRoute = createEffectMemo(() => {
@@ -155,6 +172,10 @@ export const ExploreView = (props: {
                 <div class="panel-body hint">
                   <p>Tap a vehicle or a stop on the map, or search above.</p>
                   <p class="muted small">
+                    Long-press (or right-click) anywhere to save a place or an interchange area
+                    there.
+                  </p>
+                  <p class="muted small">
                     Trams are blue, buses grey; arrows point the way they're heading.
                   </p>
                 </div>
@@ -169,6 +190,7 @@ export const ExploreView = (props: {
                 {(r) => (
                   <StopPanel
                     hash={hash()}
+                    city={props.city.id}
                     group={r().group}
                     timeZone={props.loaded.timeZone}
                     live={props.live}
@@ -212,6 +234,22 @@ export const ExploreView = (props: {
                     id={r().id}
                     timeZone={props.loaded.timeZone}
                     live={props.live}
+                    map={map}
+                  />
+                )}
+              </Match>
+              <Match
+                when={(() => {
+                  const r = route();
+                  return r.page === "point" ? r : undefined;
+                })()}
+              >
+                {(r) => (
+                  <PointPanel
+                    hash={hash()}
+                    city={props.city.id}
+                    lat={r().lat}
+                    lon={r().lon}
                     map={map}
                   />
                 )}

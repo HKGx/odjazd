@@ -1,8 +1,8 @@
 import type { CityList, CitySummary } from "@odjazd/api";
-import { seedIntent } from "@odjazd/user-data";
 import { type LiveDto, TimetableClient } from "@odjazd/worker";
-import { Effect, Schema, Stream } from "effect";
+import { Effect, Stream } from "effect";
 import {
+  createEffect,
   createMemo,
   createSignal,
   Errored,
@@ -16,18 +16,22 @@ import {
 } from "solid-js";
 import { createEffectMemo, createEffectStream } from "./effect-solid.ts";
 import { megabytes } from "./format.ts";
-import { persisted } from "./prefs.ts";
+import { preferences, updatePreferences, useCity, withStore } from "./user.ts";
 import { href, onMap, route } from "./route.ts";
 import { AboutView } from "./views/about.tsx";
 import { BoardView } from "./views/board.tsx";
 import { CompareView } from "./views/compare.tsx";
 import { ExploreView, prefersDark } from "./views/explore/explore.tsx";
+import { PlacesView } from "./views/places.tsx";
+import { SettingsView } from "./views/settings.tsx";
 import { Api } from "./runtime.ts";
 
 const sections = [
   { page: "map", label: "Map" },
   { page: "compare", label: "Compare" },
-  { page: "board", label: "Areas" },
+  { page: "board", label: "Boards" },
+  { page: "places", label: "Places" },
+  { page: "settings", label: "Settings" },
   { page: "about", label: "About" },
 ] as const;
 
@@ -52,13 +56,23 @@ const Nav = () => (
   </nav>
 );
 
+/** Dark mode per the theme preference, following the system when set to "system". */
 const useDark = () => {
   const query = prefersDark();
-  const [dark, setDark] = createSignal(query.matches);
-  const listener = (event: MediaQueryListEvent) => setDark(event.matches);
+  const [systemDark, setSystemDark] = createSignal(query.matches);
+  const listener = (event: MediaQueryListEvent) => setSystemDark(event.matches);
   query.addEventListener("change", listener);
   onCleanup(() => query.removeEventListener("change", listener));
-  return dark;
+  createEffect(
+    () => preferences().theme,
+    (theme) => {
+      document.documentElement.dataset["theme"] = theme;
+    },
+  );
+  return createMemo(() => {
+    const theme = preferences().theme;
+    return theme === "system" ? systemDark() : theme === "dark";
+  });
 };
 
 const Failure = (props: { error: unknown; reset: () => void }) => (
@@ -73,12 +87,23 @@ const Failure = (props: { error: unknown; reset: () => void }) => (
   </div>
 );
 
-const City = (props: { city: CitySummary }) => {
+const City = (props: { city: CitySummary; cities: CityList }) => {
   const loaded = createEffectMemo(() => {
     const city = props.city.id;
     return TimetableClient.use((worker) => worker.Load({ city }));
   });
-  const intent = createMemo(() => seedIntent(props.city.id));
+  // Starter areas and routes, offered once per city; the user can delete them.
+  createEffect(
+    () => props.city.id,
+    (city) => {
+      withStore((store) => store.seed(city));
+    },
+  );
+  const records = useCity(() => props.city.id);
+  const intent = createMemo(() => ({
+    areas: records().areas.map((r) => r.area),
+    corridors: records().corridors.map((r) => r.corridor),
+  }));
   const initialLive: LiveDto = { status: "connecting", fetchedAt: 0, vehicles: [] };
   const live = createEffectStream(() => {
     const city = props.city.id;
@@ -119,6 +144,12 @@ const City = (props: { city: CitySummary }) => {
             })()}
           />
         </Match>
+        <Match when={route().page === "places"}>
+          <PlacesView city={props.city} />
+        </Match>
+        <Match when={route().page === "settings"}>
+          <SettingsView cities={props.cities} />
+        </Match>
         <Match when={route().page === "about"}>
           <AboutView city={props.city} loaded={loaded()} />
         </Match>
@@ -140,9 +171,8 @@ const City = (props: { city: CitySummary }) => {
 };
 
 const Shell = (props: { cities: CityList }) => {
-  const [cityId, setCityId] = persisted("city", Schema.String, "");
   const city = createMemo(
-    () => props.cities.cities.find((c) => c.id === cityId()) ?? props.cities.cities[0],
+    () => props.cities.cities.find((c) => c.id === preferences().city) ?? props.cities.cities[0],
   );
   return (
     <>
@@ -153,7 +183,12 @@ const Shell = (props: { cities: CityList }) => {
         <Show when={props.cities.cities.length > 1}>
           <label class="city-picker">
             <span class="sr-only">City</span>
-            <select onChange={(e) => setCityId(e.currentTarget.value)}>
+            <select
+              onChange={(e) => {
+                const id = props.cities.cities.find((c) => c.id === e.currentTarget.value)?.id;
+                if (id !== undefined) updatePreferences({ city: id });
+              }}
+            >
               <For each={props.cities.cities}>
                 {(c) => (
                   <option value={c.id} selected={c.id === city()?.id}>
@@ -173,7 +208,7 @@ const Shell = (props: { cities: CityList }) => {
         <Show when={city()} keyed fallback={<p class="empty">No cities are available yet.</p>}>
           {(selected) => (
             <Errored fallback={(error, reset) => <Failure error={error()} reset={reset} />}>
-              <City city={selected} />
+              <City city={selected} cities={props.cities} />
             </Errored>
           )}
         </Show>

@@ -1,5 +1,6 @@
 import { BrowserKeyValueStore } from "@effect/platform-browser";
 import { OdjazdApi } from "@odjazd/api";
+import { UserDataStore } from "@odjazd/user-data";
 import { TimetableClient } from "@odjazd/worker";
 import { Context, Effect, Layer, ManagedRuntime } from "effect";
 import { FetchHttpClient } from "effect/http";
@@ -20,7 +21,9 @@ const timetableWorker = TimetableClient.layer(
 
 /** Everything the UI runs on. Built once, lazily, on first use. */
 export const runtime = ManagedRuntime.make(
-  Layer.mergeAll(Api.layer, timetableWorker, BrowserKeyValueStore.layerLocalStorage),
+  Layer.mergeAll(Api.layer, timetableWorker, UserDataStore.layer).pipe(
+    Layer.provideMerge(BrowserKeyValueStore.layerLocalStorage),
+  ),
 );
 
 export type AppServices = ManagedRuntime.ManagedRuntime.Services<typeof runtime>;

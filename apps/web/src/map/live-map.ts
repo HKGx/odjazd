@@ -28,7 +28,40 @@ export interface LiveMapOptions {
   readonly onStop: (group: number) => void;
   readonly onVehicle: (id: string) => void;
   readonly onBackground: () => void;
+  /** Long-press (touch) or right-click on the map. */
+  readonly onPoint: (lat: number, lon: number) => void;
 }
+
+export interface UserLayers {
+  readonly areas: ReadonlyArray<{
+    readonly name: string;
+    readonly center: { readonly lat: number; readonly lon: number };
+    readonly radiusMeters: number;
+  }>;
+  readonly places: ReadonlyArray<{
+    readonly name: string;
+    readonly icon: string;
+    readonly point: { readonly lat: number; readonly lon: number };
+  }>;
+}
+
+export interface Pin {
+  readonly lat: number;
+  readonly lon: number;
+  /** Draws the circle an area here would cover. */
+  readonly radiusMeters?: number | undefined;
+}
+
+/** A circle as a 48-gon; fine at city scale. */
+const circle = (lat: number, lon: number, radiusMeters: number) => {
+  const dLat = radiusMeters / 111_320;
+  const dLon = dLat / Math.cos((lat * Math.PI) / 180);
+  const ring = Array.from({ length: 49 }, (_, i) => {
+    const a = (i / 48) * 2 * Math.PI;
+    return [lon + dLon * Math.cos(a), lat + dLat * Math.sin(a)];
+  });
+  return { type: "Polygon" as const, coordinates: [ring] };
+};
 
 export interface Focus {
   /** Line to emphasize; other vehicles fade. */
@@ -87,6 +120,8 @@ export class LiveMap {
   private lastFrame = 0;
   private ready = false;
   private dark: boolean;
+  private user: UserLayers = { areas: [], places: [] };
+  private pin: Pin | undefined;
   private bottomInset = 0;
   /** Last point we centered, until the user moves the map themselves. */
   private target: { lat: number; lon: number; zoom: number | undefined } | undefined;
@@ -128,6 +163,28 @@ export class LiveMap {
       else if (stop !== undefined) this.options.onStop(Number(stop.properties["group"]));
       else this.options.onBackground();
     });
+    this.map.on("contextmenu", (event) => {
+      event.preventDefault();
+      this.options.onPoint(event.lngLat.lat, event.lngLat.lng);
+    });
+    // Touch long-press; any movement or a second finger cancels it.
+    let press: ReturnType<typeof setTimeout> | undefined;
+    const cancel = () => {
+      if (press !== undefined) clearTimeout(press);
+      press = undefined;
+    };
+    this.map.on("touchstart", (event) => {
+      cancel();
+      if (event.originalEvent.touches.length !== 1) return;
+      const { lat, lng } = event.lngLat;
+      press = setTimeout(() => {
+        press = undefined;
+        this.options.onPoint(lat, lng);
+      }, 550);
+    });
+    for (const type of ["touchend", "touchcancel", "touchmove", "movestart"] as const) {
+      this.map.on(type, cancel);
+    }
     for (const layer of ["vehicles", "stops", "route-stops"]) {
       this.map.on("mouseenter", layer, () => (this.map.getCanvas().style.cursor = "pointer"));
       this.map.on("mouseleave", layer, () => (this.map.getCanvas().style.cursor = ""));
@@ -154,7 +211,43 @@ export class LiveMap {
     if (arrow !== undefined && !map.hasImage("arrow"))
       map.addImage("arrow", arrow, { pixelRatio: 2 });
 
+    map.addSource("user-areas", { type: "geojson", data: empty });
+    map.addSource("user-places", { type: "geojson", data: empty });
+    map.addSource("pin", { type: "geojson", data: empty });
     map.addSource("stops", { type: "geojson", data: empty });
+
+    map.addLayer({
+      id: "user-areas",
+      type: "fill",
+      source: "user-areas",
+      paint: { "fill-color": accent, "fill-opacity": 0.08 },
+    });
+    map.addLayer({
+      id: "user-area-outlines",
+      type: "line",
+      source: "user-areas",
+      paint: {
+        "line-color": accent,
+        "line-width": ["case", ["get", "pin"], 2, 1],
+        "line-dasharray": [2, 2],
+        "line-opacity": 0.7,
+      },
+    });
+    map.addLayer({
+      id: "user-area-labels",
+      type: "symbol",
+      source: "user-areas",
+      minzoom: 13,
+      filter: ["!", ["get", "pin"]],
+      layout: {
+        "text-field": ["get", "name"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 10,
+        "symbol-placement": "line",
+        "text-optional": true,
+      },
+      paint: { "text-color": accent, "text-halo-color": surface, "text-halo-width": 1.5 },
+    });
     map.addSource("route", { type: "geojson", data: empty });
     map.addSource("route-stops", { type: "geojson", data: empty });
     map.addSource("vehicles", { type: "geojson", data: empty });
@@ -269,10 +362,89 @@ export class LiveMap {
       paint: { "text-color": "#ffffff", "text-opacity": ["case", ["get", "dim"], 0.3, 1] },
     });
 
+    map.addLayer({
+      id: "user-places",
+      type: "symbol",
+      source: "user-places",
+      layout: {
+        "text-field": ["concat", ["get", "icon"], " ", ["get", "name"]],
+        "text-font": font,
+        "text-size": 12,
+        "text-anchor": "left",
+        "text-offset": [-0.4, 0],
+        "text-allow-overlap": true,
+      },
+      paint: { "text-color": accent, "text-halo-color": surface, "text-halo-width": 2 },
+    });
+    map.addLayer({
+      id: "pin",
+      type: "circle",
+      source: "pin",
+      paint: {
+        "circle-radius": 8,
+        "circle-color": accent,
+        "circle-stroke-color": surface,
+        "circle-stroke-width": 3,
+      },
+    });
+
     this.ready = true;
+    this.drawUser();
     this.drawStops();
     this.drawRoute();
     this.drawVehicles(performance.now());
+  }
+
+  /** The user's saved areas and places (drawn under transit). */
+  setUserLayers(user: UserLayers) {
+    this.user = user;
+    this.drawUser();
+  }
+
+  setPin(pin: Pin | undefined) {
+    this.pin = pin;
+    this.drawUser();
+  }
+
+  private drawUser() {
+    if (!this.ready) return;
+    const pin = this.pin;
+    const areas = this.user.areas.map((area) => ({
+      type: "Feature" as const,
+      geometry: circle(area.center.lat, area.center.lon, area.radiusMeters),
+      properties: { name: area.name, pin: false },
+    }));
+    if (pin?.radiusMeters !== undefined) {
+      areas.push({
+        type: "Feature",
+        geometry: circle(pin.lat, pin.lon, pin.radiusMeters),
+        properties: { name: "", pin: true },
+      });
+    }
+    this.map
+      .getSource<GeoJSONSource>("user-areas")
+      ?.setData({ type: "FeatureCollection", features: areas });
+    this.map.getSource<GeoJSONSource>("user-places")?.setData({
+      type: "FeatureCollection",
+      features: this.user.places.map((place) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [place.point.lon, place.point.lat] },
+        properties: { name: place.name, icon: place.icon },
+      })),
+    });
+    this.map.getSource<GeoJSONSource>("pin")?.setData({
+      type: "FeatureCollection",
+      features:
+        pin === undefined
+          ? []
+          : [
+              {
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [pin.lon, pin.lat] },
+                properties: {},
+              },
+            ],
+    });
   }
 
   setStops(stops: StopsDto) {

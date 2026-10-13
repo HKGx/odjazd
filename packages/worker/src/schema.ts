@@ -107,6 +107,10 @@ export const CompareQuery = Schema.Struct({
   to: Clock,
   stepMinutes: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 60 })),
   transferBufferSec: Schema.Finite,
+  /** The user's walking speed; 4.5 km/h when absent. */
+  walkingSpeedKmh: Schema.optionalKey(Schema.Finite),
+  /** How much later non-preferred lines count as leaving, seconds. */
+  preferencePenaltySec: Schema.optionalKey(Schema.Finite),
 });
 export type CompareQuery = typeof CompareQuery.Type;
 

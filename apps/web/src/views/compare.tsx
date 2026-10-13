@@ -10,7 +10,10 @@ import { Option, Schema } from "effect";
 import { createEffect, createMemo, createSignal, For, isPending, Show, untrack } from "solid-js";
 import { createEffectMemo } from "../effect-solid.ts";
 import { clock, fromClock, minutes, nowClock, oneDecimal, toClock, today } from "../format.ts";
+import { queryPreferences, withLinePreferences } from "../apply-preferences.ts";
 import { persisted } from "../prefs.ts";
+import { href } from "../route.ts";
+import { preferences, updatePreferences } from "../user.ts";
 import { seriesColor, TravelTimeChart } from "./chart.tsx";
 
 const Clock = Schema.String.check(Schema.isPattern(/^\d{2}:\d{2}$/));
@@ -35,13 +38,14 @@ export const CompareView = (props: { loaded: LoadResult; intent: SeedIntent }) =
   const [from, setFrom] = persisted("compare.from", Clock, "07:00");
   const [to, setTo] = persisted("compare.to", Clock, "09:00");
   const [step, setStep] = persisted("compare.step", Schema.Int, 5);
-  const [buffer, setBuffer] = persisted("compare.buffer", Schema.Int, 60);
   const [hidden, setHidden] = persisted("compare.hidden", Schema.Array(Schema.String), []);
   const [selected, setSelected] = createSignal<number | undefined>(undefined);
   const [showTable, setShowTable] = createSignal(false);
 
   const corridors = createMemo(() =>
-    props.intent.corridors.filter((corridor) => !hidden().includes(corridor.slug)),
+    props.intent.corridors
+      .filter((corridor) => !hidden().includes(corridor.slug))
+      .map((corridor) => withLinePreferences(corridor, preferences())),
   );
 
   const comparison = createEffectMemo(() => {
@@ -53,7 +57,7 @@ export const CompareView = (props: { loaded: LoadResult; intent: SeedIntent }) =
       from: from(),
       to: fromClock(to()) < fromClock(from()) ? from() : to(),
       stepMinutes: step(),
-      transferBufferSec: buffer(),
+      ...queryPreferences(preferences()),
     };
     return TimetableClient.use((worker) => worker.Compare(query));
   });
@@ -115,10 +119,14 @@ export const CompareView = (props: { loaded: LoadResult; intent: SeedIntent }) =
         </label>
         <label>
           Transfer buffer
-          <select onChange={(e) => setBuffer(Number(e.currentTarget.value))}>
+          <select
+            onChange={(e) =>
+              updatePreferences({ transferBufferSec: Number(e.currentTarget.value) })
+            }
+          >
             <For each={[0, 30, 60, 90, 120, 180]}>
               {(n) => (
-                <option value={String(n)} selected={n === buffer()}>
+                <option value={String(n)} selected={n === preferences().transferBufferSec}>
                   {n} s
                 </option>
               )}
@@ -145,6 +153,17 @@ export const CompareView = (props: { loaded: LoadResult; intent: SeedIntent }) =
           </For>
         </div>
       </form>
+      <p class="muted small applied">
+        Walking {oneDecimal(preferences().walkingSpeedKmh)} km/h
+        {preferences().preferredLines.length > 0
+          ? ` · prefer ${preferences().preferredLines.join(", ")}`
+          : ""}
+        {preferences().avoidedLines.length > 0
+          ? ` · avoid ${preferences().avoidedLines.join(", ")}`
+          : ""}{" "}
+        · <a href={href({ page: "settings" })}>Settings</a> ·{" "}
+        <a href={href({ page: "places" })}>Edit routes</a>
+      </p>
 
       <fieldset class="corridor-picker">
         <legend>Corridors</legend>

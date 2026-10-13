@@ -8,7 +8,6 @@ import type { BoardDto, BoardQuery, CompareQuery, ComparisonDto, LineLabel } fro
 /** The engine bound to one loaded timetable; everything here is synchronous. */
 export const makeHost = (timetable: Timetable) => {
   const schedule = scheduleRealization(timetable);
-  const walking = straightLineWalking();
   const lineIndex = new Map(timetable.lines.map((line) => [line.id, line]));
 
   const label = (id: LineId): LineLabel => {
@@ -51,9 +50,11 @@ export const makeHost = (timetable: Timetable) => {
       {
         timetable,
         realization: explorer.current(),
-        walking,
+        walking: straightLineWalking(
+          request.walkingSpeedKmh === undefined ? {} : { speedKmh: request.walkingSpeedKmh },
+        ),
         transferBufferSec: request.transferBufferSec,
-        nonPreferredPenaltySec: 0,
+        nonPreferredPenaltySec: request.preferencePenaltySec ?? 0,
         maxWaitSec: 3600,
       },
       usable,
