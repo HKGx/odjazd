@@ -9,6 +9,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
+    "gen:proto": "buf generate --template buf.gen.yaml && oxfmt src/realtime/gen",
     "test": "vitest run",
     "typecheck": "tsc"
   },

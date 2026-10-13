@@ -1,13 +1,19 @@
 import type { EpochSeconds, InterchangeArea, LineId } from "@odjazd/model";
 import type { Realization } from "@odjazd/prediction";
-import { runsOn, StopTimeFlag, type Timetable } from "@odjazd/timetable";
+import { instantOn, runsOn, StopTimeFlag, type Timetable } from "@odjazd/timetable";
 import { resolveArea } from "./areas.ts";
 
 export interface Departure {
   readonly line: LineId;
   readonly headsign: string;
   readonly stop: number;
+  /** Per the realization (equal to `scheduledAt` for the schedule realization). */
   readonly departAt: EpochSeconds;
+  readonly scheduledAt: EpochSeconds;
+  readonly trip: number;
+  readonly day: number;
+  /** Stop time index of this departure. */
+  readonly stopTime: number;
   readonly tripFeedId: string;
 }
 
@@ -22,9 +28,27 @@ export const departuresFromArea = (
   from: EpochSeconds,
   horizonSec: number,
   limit: number,
+): ReadonlyArray<Departure> =>
+  departuresFromStops(
+    timetable,
+    realization,
+    resolveArea(timetable, area).stops,
+    from,
+    horizonSec,
+    limit,
+  );
+
+/** Like {@link departuresFromArea}, for an explicit set of stop indexes. */
+export const departuresFromStops = (
+  timetable: Timetable,
+  realization: Realization,
+  stops: ArrayLike<number>,
+  from: EpochSeconds,
+  horizonSec: number,
+  limit: number,
 ): ReadonlyArray<Departure> => {
   const member = new Uint8Array(timetable.stops.count);
-  for (const stop of resolveArea(timetable, area).stops) member[stop] = 1;
+  for (let i = 0; i < stops.length; i++) member[stops[i] ?? 0] = 1;
   const to = from + horizonSec;
   const { trips, stopTimes, days } = timetable;
 
@@ -52,6 +76,10 @@ export const departuresFromArea = (
           headsign: trips.headsigns[trip] ?? "",
           stop,
           departAt,
+          scheduledAt: instantOn(timetable, day, stopTimes.departure[st] ?? 0),
+          trip,
+          day,
+          stopTime: st,
           tripFeedId: trips.feedIds[trip] ?? "",
         });
       }
