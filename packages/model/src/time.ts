@@ -111,3 +111,13 @@ export const gtfsTimeToEpoch = (anchor: EpochSeconds, offsetSeconds: number): Ep
 /** For display and tests only: the instant as wall-clock time in `timeZone`. */
 export const toZoned = (epoch: EpochSeconds, timeZone: TimeZone): Temporal.ZonedDateTime =>
   Temporal.Instant.fromEpochMilliseconds(epoch * 1000).toZonedDateTimeISO(timeZone);
+
+/**
+ * The instant of wall-clock `time` (`HH:MM` or `HH:MM:SS`) on `date` in `timeZone`.
+ * For user input; nonexistent DST times resolve forward, repeated ones to the first.
+ */
+export const localToEpoch = (date: ServiceDate, time: string, timeZone: TimeZone): EpochSeconds =>
+  (Temporal.PlainDate.from(date).toZonedDateTime({
+    timeZone,
+    plainTime: Temporal.PlainTime.from(time),
+  }).epochMilliseconds / 1000) as EpochSeconds;

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { Result, Schema } from "effect";
 import { InterchangeArea } from "./area.ts";
+import { Corridor } from "./corridor.ts";
 import { distanceMeters } from "./geo.ts";
 
 describe("distanceMeters", () => {
@@ -46,5 +48,25 @@ describe("InterchangeArea", () => {
     { name: "" },
   ])("rejects %j", (patch) => {
     expect(() => InterchangeArea.make({ ...area, ...patch } as InterchangeArea)).toThrow();
+  });
+});
+
+describe("Corridor", () => {
+  const leg = (from: string, to: string) => ({ from, to, allow: {} });
+  const decode = (legs: ReadonlyArray<ReturnType<typeof leg>>) =>
+    Schema.decodeUnknownResult(Corridor)({ slug: "r1", cityId: "pl-lodz", name: "Route 1", legs });
+
+  it("accepts a chained corridor", () => {
+    expect(Result.isSuccess(decode([leg("a", "b"), leg("b", "c")]))).toBe(true);
+  });
+
+  it("rejects broken chains, same-area legs and empty corridors", () => {
+    const message = (legs: ReadonlyArray<ReturnType<typeof leg>>) => {
+      const result = decode(legs);
+      return Result.isFailure(result) ? result.failure.message : "";
+    };
+    expect(message([leg("a", "b"), leg("c", "d")])).toContain("must continue from b");
+    expect(message([leg("a", "a")])).toContain("same area");
+    expect(message([])).not.toBe("");
   });
 });

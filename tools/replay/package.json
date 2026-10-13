@@ -9,6 +9,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
+    "compare": "node src/cli.ts compare",
     "test": "vitest run",
     "typecheck": "tsc"
   },

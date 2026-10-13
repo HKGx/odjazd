@@ -30,7 +30,7 @@
       {
         "name": "@effect/language-service",
         // @effect/vitest is mandated for tests but marked unstable.
-        "allowedUnstableApis": ["@effect/vitest"],
+        "allowedUnstableApis": ["@effect/vitest", "@effect/platform-node/NodeRuntime"],
         "diagnosticSeverity": {
           "abortControllerInEffect": "error",
           "acquireReleaseDisposable": "error",

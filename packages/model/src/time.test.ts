@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   gtfsTimeToEpoch,
+  localToEpoch,
   parseGtfsDate,
   parseGtfsTime,
   ServiceDate,
@@ -129,5 +130,17 @@ describe("GTFS time → epoch (Europe/Warsaw)", () => {
       expect(wallClock(depart)).toBe("2026-10-25T02:30:00");
       expect(wallClock(arrive)).toBe("2026-10-25T02:30:00");
     });
+  });
+});
+
+describe("localToEpoch", () => {
+  it("interprets wall-clock time in the zone", () => {
+    expect(localToEpoch(date("2026-10-13"), "08:15", warsaw)).toBe(utc("2026-10-13T06:15:00Z"));
+    expect(localToEpoch(date("2026-01-15"), "08:15:30", warsaw)).toBe(utc("2026-01-15T07:15:30Z"));
+  });
+
+  it("resolves DST gaps forward and repeats to the first occurrence", () => {
+    expect(localToEpoch(date("2026-03-29"), "02:30", warsaw)).toBe(utc("2026-03-29T01:30:00Z"));
+    expect(localToEpoch(date("2026-10-25"), "02:30", warsaw)).toBe(utc("2026-10-25T00:30:00Z"));
   });
 });
