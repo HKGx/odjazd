@@ -4,6 +4,7 @@ import { Effect, FileSystem, Option } from "effect";
 import { HttpServerResponse } from "effect/http";
 import { HttpApiBuilder, HttpApiError } from "effect/http-api";
 import { Publisher } from "./publisher.ts";
+import { Realtime } from "./realtime/service.ts";
 
 export const citiesHandlers = (entries: ReadonlyArray<CatalogEntry>) =>
   HttpApiBuilder.group(
@@ -72,5 +73,29 @@ export const feedsHandlers = HttpApiBuilder.group(
         });
       }),
     );
+  }),
+);
+
+export const realtimeHandlers = HttpApiBuilder.group(
+  OdjazdApi,
+  "realtime",
+  Effect.fn(function* (handlers) {
+    const realtime = yield* Realtime;
+    return handlers
+      .handle("snapshot", ({ params }) =>
+        realtime.snapshot(params.city).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.fail(HttpApiError.NotFound.make({})),
+              onSome: Effect.succeed,
+            }),
+          ),
+        ),
+      )
+      .handle("stream", ({ params }) =>
+        Effect.fromOption(realtime.events(params.city)).pipe(
+          Effect.mapError(() => HttpApiError.NotFound.make({})),
+        ),
+      );
   }),
 );

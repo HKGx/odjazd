@@ -1,10 +1,15 @@
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { CityManifest, type ContentHash } from "@odjazd/api";
 import type { CatalogEntry } from "@odjazd/cities";
 import { ingestGtfsZip } from "@odjazd/ingest";
 import type { CityId } from "@odjazd/model";
-import { encodeTimetable, TIMETABLE_FORMAT_VERSION } from "@odjazd/timetable";
+import {
+  decodeTimetable,
+  encodeTimetable,
+  TIMETABLE_FORMAT_VERSION,
+  type Timetable,
+} from "@odjazd/timetable";
 import {
   Clock,
   Context,
@@ -34,6 +39,10 @@ export class Publisher extends Context.Service<
   Publisher,
   {
     readonly manifest: (city: CityId) => Effect.Effect<Option.Option<CityManifest>>;
+    /** The decoded timetable the current manifest names; realtime is resolved against it. */
+    readonly timetable: (
+      city: CityId,
+    ) => Effect.Effect<Option.Option<{ readonly hash: string; readonly timetable: Timetable }>>;
     /** Path of a published `.bin.gz`, if `file` names one. */
     readonly feedFile: (file: string) => Option.Option<string>;
     readonly refresh: (entry: CatalogEntry) => Effect.Effect<void>;
@@ -53,8 +62,16 @@ export class Publisher extends Context.Service<
         yield* fs.makeDirectory(manifestsDir, { recursive: true });
 
         const manifests = yield* Ref.make(new Map<CityId, CityManifest>());
-        const store = (manifest: CityManifest) =>
-          Ref.update(manifests, (map) => new Map(map).set(manifest.cityId, manifest));
+        const timetables = yield* Ref.make(
+          new Map<CityId, { readonly hash: string; readonly timetable: Timetable }>(),
+        );
+        const store = (manifest: CityManifest, timetable: Timetable) =>
+          Effect.andThen(
+            Ref.update(manifests, (map) => new Map(map).set(manifest.cityId, manifest)),
+            Ref.update(timetables, (map) =>
+              new Map(map).set(manifest.cityId, { hash: manifest.timetable.hash, timetable }),
+            ),
+          );
 
         // Last good manifests first, so a restart serves immediately.
         for (const entry of entries) {
@@ -62,7 +79,14 @@ export class Publisher extends Context.Service<
           const saved = yield* fs
             .readFileString(file)
             .pipe(Effect.flatMap(Schema.decodeEffect(ManifestJson)), Effect.option);
-          if (Option.isSome(saved)) yield* store(saved.value);
+          if (Option.isNone(saved)) continue;
+          const restored = yield* fs
+            .readFile(path.join(feedsDir, `${saved.value.timetable.hash}.bin.gz`))
+            .pipe(
+              Effect.flatMap((gz) => Effect.try(() => decodeTimetable(gunzipSync(gz)))),
+              Effect.option,
+            );
+          if (Option.isSome(restored)) yield* store(saved.value, restored.value);
         }
 
         const download = Effect.fn("Publisher.download")(function* (entry: CatalogEntry) {
@@ -85,7 +109,8 @@ export class Publisher extends Context.Service<
           const current = (yield* Ref.get(manifests)).get(entry.id);
           if (
             current?.sourceHash === sourceHash &&
-            current.timetable.formatVersion === TIMETABLE_FORMAT_VERSION
+            current.timetable.formatVersion === TIMETABLE_FORMAT_VERSION &&
+            (yield* Ref.get(timetables)).get(entry.id)?.hash === current.timetable.hash
           ) {
             yield* Effect.logDebug(`${entry.id}: feed unchanged`);
             return;
@@ -122,7 +147,7 @@ export class Publisher extends Context.Service<
           };
           const json = yield* Schema.encodeEffect(ManifestJson)(manifest);
           yield* fs.writeFileString(path.join(manifestsDir, `${entry.id}.json`), json);
-          yield* store(manifest);
+          yield* store(manifest, timetable);
           yield* Effect.logInfo(
             `${entry.id}: published ${hash.slice(0, 12)} (${(compressed.length / 1e6).toFixed(1)} MB gz, ` +
               `feed ${timetable.feedVersion ?? "?"}, ${(yield* Clock.currentTimeMillis) - started} ms)`,
@@ -135,6 +160,8 @@ export class Publisher extends Context.Service<
           );
 
         return Publisher.of({
+          timetable: (city) =>
+            Effect.map(Ref.get(timetables), (map) => Option.fromNullishOr(map.get(city))),
           manifest: (city) =>
             Effect.map(Ref.get(manifests), (map) => Option.fromNullishOr(map.get(city))),
           feedFile: (file) => {

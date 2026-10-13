@@ -23,5 +23,8 @@
     "@odjazd/model": "workspace:*",
     "@odjazd/timetable": "workspace:*",
     "effect": "4.0.4"
+  },
+  "devDependencies": {
+    "@odjazd/engine": "workspace:*"
   }
 }
