@@ -61,3 +61,6 @@ minimumReleaseAgeExclude:
   - "@oxlint/binding-win32-x64-msvc@1.88.0"
   - oxfmt@0.73.0
   - oxlint@1.88.0
+  - "@solidjs/signals@2.0.0-rc.15"
+  - "@solidjs/web@2.0.0-rc.15"
+  - solid-js@2.0.0-rc.15

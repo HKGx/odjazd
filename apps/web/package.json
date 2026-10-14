@@ -22,11 +22,11 @@
     "@odjazd/model": "workspace:*",
     "@odjazd/user-data": "workspace:*",
     "@odjazd/worker": "workspace:*",
-    "@solidjs/web": "2.0.0-rc.14",
+    "@solidjs/web": "2.0.0-rc.15",
     "effect": "4.0.4",
     "maplibre-gl": "^6.14.0",
     "pmtiles": "^4.5.0",
-    "solid-js": "2.0.0-rc.14"
+    "solid-js": "2.0.0-rc.15"
   },
   "devDependencies": {
     "@solidjs/vite-plugin": "3.0.0-next.35",
