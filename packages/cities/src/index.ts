@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { plGdansk } from "./entries/pl-gdansk.ts";
 import { plGliwice } from "./entries/pl-gliwice.ts";
+import { plGrodziskMazowiecki } from "./entries/pl-grodzisk-mazowiecki.ts";
 import { plKielce } from "./entries/pl-kielce.ts";
 import { plKrakow } from "./entries/pl-krakow.ts";
 import { plKrosno } from "./entries/pl-krosno.ts";
@@ -29,6 +30,7 @@ export const entries: ReadonlyArray<(typeof Catalog.Encoded)[number]> = [
   plKielce,
   plSiedlce,
   plKrosno,
+  plGrodziskMazowiecki,
 ];
 
 /** The validated catalog. Fails with a `SchemaError` describing every invalid field. */
