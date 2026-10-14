@@ -14,6 +14,7 @@ import {
   Show,
   Switch,
 } from "solid-js";
+import { type JSX, Portal } from "@solidjs/web";
 import { createEffectMemo, createEffectStream } from "./effect-solid.ts";
 import { megabytes } from "./format.ts";
 import {
@@ -114,7 +115,12 @@ const LoadingText = (props: { city: CitySummary }) => (
   </Show>
 );
 
-const City = (props: { city: CitySummary; cities: CityList }) => {
+/** Notices float under the header, over the page: showing or hiding one moves nothing. */
+const Status = (props: { slot: HTMLElement | undefined; children: JSX.Element }) => (
+  <Show when={props.slot}>{(slot) => <Portal mount={slot()}>{props.children}</Portal>}</Show>
+);
+
+const City = (props: { city: CitySummary; cities: CityList; status: HTMLElement | undefined }) => {
   const loaded = createEffectMemo(() => {
     const city = props.city.id;
     return TimetableClient.use((worker) => worker.Load({ city }));
@@ -155,16 +161,18 @@ const City = (props: { city: CitySummary; cities: CityList }) => {
       }
     >
       {/* Switching city: the old network stays on screen until the new one is in. */}
-      <Show when={isPending(() => loaded())}>
-        <p class="notice" role="status">
-          <LoadingText city={props.city} />
-        </p>
-      </Show>
-      <Show when={loaded().source === "cache"}>
-        <p class="notice" role="status">
-          <span aria-hidden="true">●</span> Offline: using the timetable saved on this device.
-        </p>
-      </Show>
+      <Status slot={props.status}>
+        <Show when={isPending(() => loaded())}>
+          <p class="toast" role="status">
+            <LoadingText city={props.city} />
+          </p>
+        </Show>
+        <Show when={loaded().source === "cache"}>
+          <p class="toast" role="status">
+            <span aria-hidden="true">●</span> Offline: using the timetable saved on this device.
+          </p>
+        </Show>
+      </Status>
       <Switch>
         <Match when={onMap(route())}>
           <ExploreView
@@ -221,6 +229,7 @@ const Shell = (props: { cities: CityList }) => {
     const id = chosenCity();
     return id === undefined ? undefined : (list.find((c) => c.id === id) ?? list[0]);
   });
+  const [status, setStatus] = createSignal<HTMLElement>();
   return (
     <>
       <header>
@@ -250,6 +259,7 @@ const Shell = (props: { cities: CityList }) => {
           <span class="city-name">{city()?.name["en"]}</span>
         </Show>
         <Nav />
+        <div class="status-slot" ref={setStatus} />
       </header>
       <main class={onMap(route()) ? "full" : undefined}>
         {/* Not keyed: switching city keeps the map and panels, only the network changes. */}
@@ -268,7 +278,7 @@ const Shell = (props: { cities: CityList }) => {
         >
           {(selected) => (
             <Errored fallback={(error, reset) => <Failure error={error()} reset={reset} />}>
-              <City city={selected()} cities={props.cities} />
+              <City city={selected()} cities={props.cities} status={status()} />
             </Errored>
           )}
         </Show>
@@ -281,7 +291,14 @@ export const App = () => {
   const cities = createEffectMemo(() => Api.use((api) => api.cities.list()));
   return (
     <Errored fallback={(error, reset) => <Failure error={error()} reset={reset} />}>
-      <Loading fallback={<p class="loading">Loading…</p>}>
+      {/* The header's frame from the first paint, so the shell fills in rather than appears. */}
+      <Loading
+        fallback={
+          <header>
+            <span class="brand">odjazd</span>
+          </header>
+        }
+      >
         <div data-pending={isPending(() => cities())}>
           <Shell cities={cities()} />
         </div>

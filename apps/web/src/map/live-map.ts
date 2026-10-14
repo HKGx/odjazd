@@ -191,7 +191,6 @@ export class LiveMap {
       dragRotate: false,
     });
     this.map.touchZoomRotate.disableRotation();
-    this.map.addControl(new AttributionControl({ compact: true }), "bottom-right");
     this.map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     // Location stays on the device: it only moves the map.
     this.map.addControl(
@@ -201,6 +200,9 @@ export class LiveMap {
       }),
       "bottom-right",
     );
+    // Added last, so it tops the stack (bottom corners stack upwards): when it fills in or
+    // expands, it grows away from the buttons instead of pushing them.
+    this.map.addControl(new AttributionControl({ compact: true }), "bottom-right");
     this.map.on("style.load", () => this.install());
     this.map.on("dragstart", () => (this.target = undefined));
     // Only user gestures carry the DOM event; our own camera moves don't.
