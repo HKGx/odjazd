@@ -189,7 +189,7 @@ export const ExploreView = (props: {
   return (
     <div ref={setRoot} class="explore" data-panel={route().page === "map" ? "closed" : "open"}>
       <aside class="side">
-        <SearchBox hash={hash()} />
+        <SearchBox hash={hash()} city={props.city.id} />
         <p class={`live-status ${props.live().status}`} role="status" aria-live="polite">
           <span class="live-dot" aria-hidden="true" />
           {status()}

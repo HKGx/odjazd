@@ -203,6 +203,17 @@ export class LiveMap {
     // Added last, so it tops the stack (bottom corners stack upwards): when it fills in or
     // expands, it grows away from the buttons instead of pushing them.
     this.map.addControl(new AttributionControl({ compact: true }), "bottom-right");
+    // MapLibre opens the compact attribution when its text arrives and folds it on the first
+    // drag; start folded instead (the ⓘ opens it), in the same task so no frame shows it open.
+    const fold = () => {
+      const attribution = options.container.querySelector(".maplibregl-compact-show");
+      if (attribution === null) return;
+      attribution.classList.remove("maplibregl-compact-show");
+      this.map.off("sourcedata", fold);
+      this.map.off("styledata", fold);
+    };
+    this.map.on("sourcedata", fold);
+    this.map.on("styledata", fold);
     this.map.on("style.load", () => this.install());
     this.map.on("dragstart", () => (this.target = undefined));
     // Only user gestures carry the DOM event; our own camera moves don't.

@@ -145,23 +145,89 @@ header {
   color: var(--text-secondary);
 }
 
-nav {
+nav.sections {
   display: flex;
   gap: 4px;
   margin-left: auto;
 }
 
-nav a {
+nav.sections a {
   padding: 6px 10px;
   border-radius: 8px;
   color: var(--text-secondary);
   text-decoration: none;
 }
 
-nav a[aria-current="page"] {
+nav.sections a[aria-current="page"] {
   color: var(--text-primary);
   background: var(--page);
   font-weight: 600;
+}
+
+nav.sections .icon {
+  display: none;
+}
+
+nav.dock {
+  display: none;
+}
+
+/*
+ * Phones: one header row, and the sections in a small dock floating over the
+ * bottom of the screen. Every item is the same size, so changing section moves nothing.
+ */
+@media (max-width: 760px) {
+  header {
+    flex-wrap: nowrap;
+    height: 52px;
+    padding-block: 0;
+  }
+  nav.sections {
+    display: none;
+  }
+  nav.dock {
+    position: fixed;
+    z-index: 30;
+    left: 0;
+    right: 0;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: fit-content;
+    margin-inline: auto;
+    display: flex;
+    gap: 2px;
+    padding: 5px;
+    border-radius: 999px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.22);
+  }
+  nav.dock a {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    color: var(--text-secondary);
+    transition:
+      background-color 150ms,
+      color 150ms;
+  }
+  nav.dock a[aria-current="page"] {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  nav.dock .nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* Room under the last line of a page for the dock. */
+  main:not(.full) {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
 }
 
 main {
@@ -170,8 +236,28 @@ main {
   padding: 16px;
 }
 
+/* Pages fill the screen and the footer sits at its bottom, so content arriving doesn't push it. */
+#app > div {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+main:not(.full) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+main:not(.full) > * {
+  flex: none;
+}
+
 footer {
-  margin: 32px 0 16px;
+  margin: auto 0 16px;
+  padding-top: 32px;
   color: var(--text-muted);
   font-size: 0.85rem;
 }
@@ -743,6 +829,20 @@ main.full {
   min-width: 0;
 }
 
+.hit-aside {
+  margin-left: auto;
+  flex: none;
+  border-color: transparent;
+  color: var(--accent);
+}
+
+.place-icon {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  color: var(--accent);
+}
+
 .hit-lines {
   display: flex;
   flex-wrap: wrap;
@@ -981,20 +1081,28 @@ button.small {
     right: 0;
     bottom: 0;
     flex: none;
-    max-height: 52dvh;
+    padding-top: 14px;
+    /* One height whatever it shows: opening a stop or a trip never resizes the sheet. */
+    height: 46dvh;
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
     background: var(--surface-1);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.16);
   }
-  .explore[data-panel="closed"] .panel {
-    max-height: 7.5em;
-  }
-  /* Your routes are the first screen: room for the next departures. */
-  .explore[data-panel="closed"] .panel:has(.routes-now) {
-    max-height: 42dvh;
-  }
   .maplibregl-ctrl-bottom-right {
     bottom: calc(var(--sheet, 0px) + 4px);
+  }
+  /* The sheet's handle: it sits in the padding, so titles never meet the rounded corner. */
+  .panel::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    translate: -50% 0;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--axis);
   }
   /* Pinch zooms on touch screens; keep only locate and attribution. */
   .maplibregl-ctrl-group:has(.maplibregl-ctrl-zoom-in) {

@@ -17,6 +17,7 @@ import {
 import { type JSX, Portal } from "@solidjs/web";
 import { createEffectMemo, createEffectStream } from "./effect-solid.ts";
 import { megabytes } from "./format.ts";
+import { AboutIcon, BoardIcon, CompareIcon, MapIcon, PlacesIcon, SettingsIcon } from "./icons.tsx";
 import {
   chosenCity,
   preferences,
@@ -36,16 +37,17 @@ import { SettingsView } from "./views/settings.tsx";
 import { Api } from "./runtime.ts";
 
 const sections = [
-  { page: "map", label: "Map" },
-  { page: "compare", label: "Compare" },
-  { page: "board", label: "Boards" },
-  { page: "places", label: "Places" },
-  { page: "settings", label: "Settings" },
-  { page: "about", label: "About" },
+  { page: "map", label: "Map", icon: MapIcon },
+  { page: "compare", label: "Compare", icon: CompareIcon },
+  { page: "board", label: "Boards", icon: BoardIcon },
+  { page: "places", label: "Places", icon: PlacesIcon },
+  { page: "settings", label: "Settings", icon: SettingsIcon },
+  { page: "about", label: "About", icon: AboutIcon },
 ] as const;
 
-const Nav = () => (
-  <nav aria-label="Sections">
+/** In the header on wide screens; a small floating dock at the bottom on phones. */
+const Nav = (props: { class: string }) => (
+  <nav class={props.class} aria-label="Sections">
     <For each={sections}>
       {(section) => (
         <a
@@ -58,7 +60,8 @@ const Nav = () => (
               : undefined
           }
         >
-          {section.label}
+          <section.icon />
+          <span class="nav-label">{section.label}</span>
         </a>
       )}
     </For>
@@ -258,7 +261,7 @@ const Shell = (props: { cities: CityList }) => {
         <Show when={props.cities.cities.length === 1}>
           <span class="city-name">{city()?.name["en"]}</span>
         </Show>
-        <Nav />
+        <Nav class="sections" />
         <div class="status-slot" ref={setStatus} />
       </header>
       <main class={onMap(route()) ? "full" : undefined}>
@@ -283,6 +286,7 @@ const Shell = (props: { cities: CityList }) => {
           )}
         </Show>
       </main>
+      <Nav class="dock" />
     </>
   );
 };
