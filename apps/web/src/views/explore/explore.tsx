@@ -25,6 +25,7 @@ import { LinePanel } from "./line.tsx";
 import { mapPick } from "../../map/pick.ts";
 import { PointPanel } from "./point.tsx";
 import { RouteEditorPanel } from "./route-editor.tsx";
+import { RoutesNow } from "./routes-now.tsx";
 import { TripPanel } from "./trip.tsx";
 import { ago } from "./parts.tsx";
 import { SearchBox } from "./search.tsx";
@@ -239,6 +240,12 @@ export const ExploreView = (props: {
                       Plan a trip
                     </a>
                   </div>
+                  <RoutesNow
+                    hash={hash()}
+                    city={props.city.id}
+                    timeZone={props.city.timezone}
+                    map={map}
+                  />
                   <p>Tap a vehicle or a stop on the map, or search above.</p>
                   <p class="muted small">
                     Long-press (or right-click) anywhere to save a place or an interchange area
