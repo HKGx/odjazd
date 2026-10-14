@@ -64,3 +64,9 @@ minimumReleaseAgeExclude:
   - "@solidjs/signals@2.0.0-rc.15"
   - "@solidjs/web@2.0.0-rc.15"
   - solid-js@2.0.0-rc.15
+  - "@solid-primitives/event-listener@3.0.0-next.9"
+  - "@solid-primitives/media@4.0.0-next.5"
+  - "@solid-primitives/resize-observer@4.0.0-next.7"
+  - "@solid-primitives/rootless@2.0.0-next.4"
+  - "@solid-primitives/static-store@1.0.0-next.5"
+  - "@solid-primitives/utils@7.0.0-next.7"

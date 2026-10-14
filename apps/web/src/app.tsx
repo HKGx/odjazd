@@ -1,4 +1,5 @@
 import type { CityList, CitySummary } from "@odjazd/api";
+import { createPrefersDark } from "@solid-primitives/media";
 import { type LiveDto, TimetableClient } from "@odjazd/worker";
 import { Effect, Stream } from "effect";
 import {
@@ -10,7 +11,6 @@ import {
   isPending,
   Loading,
   Match,
-  onCleanup,
   Show,
   Switch,
   untrack,
@@ -32,7 +32,7 @@ import { AboutView } from "./views/about.tsx";
 import { BoardView } from "./views/board.tsx";
 import { ChooseCity } from "./views/choose-city.tsx";
 import { CompareView } from "./views/compare.tsx";
-import { ExploreView, prefersDark } from "./views/explore/explore.tsx";
+import { ExploreView } from "./views/explore/explore.tsx";
 import { PlacesView } from "./views/places.tsx";
 import { SettingsView } from "./views/settings.tsx";
 import { Api } from "./runtime.ts";
@@ -98,11 +98,7 @@ const Nav = (props: { class: string; children?: JSX.Element }) => (
 
 /** Dark mode per the theme preference, following the system when set to "system". */
 const useDark = () => {
-  const query = prefersDark();
-  const [systemDark, setSystemDark] = createSignal(query.matches);
-  const listener = (event: MediaQueryListEvent) => setSystemDark(event.matches);
-  query.addEventListener("change", listener);
-  onCleanup(() => query.removeEventListener("change", listener));
+  const systemDark = createPrefersDark();
   createEffect(
     () => preferences().theme,
     (theme) => {

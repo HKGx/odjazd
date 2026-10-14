@@ -39,8 +39,6 @@ import { VehiclePanel } from "./vehicle.tsx";
 /** Live positions arrive every 15 s; older than this, the chip says how old. */
 const STALE = 45;
 
-const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
-
 /** The map with search and a detail panel: stops, lines, vehicles. */
 export const ExploreView = (props: {
   city: CitySummary;
@@ -445,5 +443,3 @@ export const ExploreView = (props: {
     </div>
   );
 };
-
-export { prefersDark };

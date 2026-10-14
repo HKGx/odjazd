@@ -1,5 +1,6 @@
 import type { ComparisonDto } from "@odjazd/worker";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createElementSize } from "@solid-primitives/resize-observer";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { clock } from "../format.ts";
 
 /*
@@ -23,18 +24,11 @@ export const TravelTimeChart = (props: {
   selected: number | undefined;
   onSelect: (row: number) => void;
 }) => {
-  const [width, setWidth] = createSignal(640);
   const [hover, setHover] = createSignal<number | undefined>(undefined);
 
   const [container, setContainer] = createSignal<HTMLDivElement>();
-  createEffect(container, (element) => {
-    if (element === undefined) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry !== undefined) setWidth(Math.max(280, entry.contentRect.width));
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  });
+  const size = createElementSize(container);
+  const width = () => Math.max(280, size.width ?? 640);
 
   const wide = () => width() >= 640;
   const right = () => (wide() ? 200 : 16);

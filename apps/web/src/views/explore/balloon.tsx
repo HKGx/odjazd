@@ -1,5 +1,5 @@
 import type { CityId } from "@odjazd/model";
-import { onCleanup } from "solid-js";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { FinishIcon, MoreIcon, StartIcon } from "../../icons.tsx";
 import { navigate, type Place } from "../../route.ts";
 import { draftOf, setDraft } from "./endpoints.ts";
@@ -27,11 +27,9 @@ export const Balloon = (props: {
   const left = () =>
     Math.min(Math.max(props.at.x, HALF + 8), Math.max(HALF + 8, props.at.width - HALF - 8));
 
-  const keyDown = (event: KeyboardEvent) => {
+  makeEventListener(document, "keydown", (event) => {
     if (event.key === "Escape") props.onClose();
-  };
-  document.addEventListener("keydown", keyDown);
-  onCleanup(() => document.removeEventListener("keydown", keyDown));
+  });
 
   // One end set: wait for the other in the fields; both: show the trip.
   const use = (end: "from" | "to") => {
