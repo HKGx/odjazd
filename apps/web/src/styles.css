@@ -1244,17 +1244,6 @@ button.small {
     bottom: calc(var(--sheet, 0px) + 4px);
   }
   /* The sheet's handle: it sits in the padding, so titles never meet the rounded corner. */
-  .panel::before {
-    content: "";
-    position: absolute;
-    top: 6px;
-    left: 50%;
-    translate: -50% 0;
-    width: 36px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--axis);
-  }
   /* Pinch zooms on touch screens; keep only locate and attribution. */
   .maplibregl-ctrl-group:has(.maplibregl-ctrl-zoom-in) {
     display: none;

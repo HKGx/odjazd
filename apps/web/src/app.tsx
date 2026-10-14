@@ -109,10 +109,16 @@ const useDark = () => {
       document.documentElement.dataset["theme"] = theme;
     },
   );
-  return createMemo(() => {
+  const dark = createMemo(() => {
     const theme = preferences().theme;
     return theme === "system" ? systemDark() : theme === "dark";
   });
+  // The phone's status bar follows the app's theme, not only the system's.
+  createEffect(dark, (isDark) => {
+    for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))
+      meta.content = isDark ? "#0d0d0d" : "#f9f9f7";
+  });
+  return dark;
 };
 
 const Failure = (props: { error: unknown; reset: () => void }) => (
