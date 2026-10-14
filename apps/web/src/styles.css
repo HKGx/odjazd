@@ -776,16 +776,67 @@ main.full {
   background: var(--surface-1);
 }
 
-.search {
+/* From and to: one card of two fields, the swap beside it. */
+.plan-bar {
   position: relative;
-  padding: 12px 12px 4px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px 4px 12px;
 }
 
-.search input {
+.ends {
+  display: grid;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.end-field {
+  position: relative;
+}
+
+.end-field + .end-field {
+  border-top: 1px solid var(--border);
+}
+
+.end-field input {
   width: 100%;
+  box-sizing: border-box;
   min-height: 44px;
   font-size: 1rem;
+  border: 0;
   border-radius: 12px;
+  background: transparent;
+  text-overflow: ellipsis;
+}
+
+.end-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Waiting for a fix and the like: inside the field, at its end. */
+.end-note {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  translate: 0 -50%;
+  pointer-events: none;
+}
+
+.plan-bar .swap {
+  font-size: 1.2rem;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.plan-bar .search-results {
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
 }
 
 .search-results {
@@ -1056,15 +1107,21 @@ button.small {
     border: none;
     background: transparent;
   }
-  .search,
+  .plan-bar,
   .live-status,
   .panel {
     pointer-events: auto;
   }
-  .search {
-    padding: 10px;
+  .plan-bar {
+    padding: 10px 6px 6px 10px;
   }
-  .search input {
+  .ends {
+    background: var(--surface-1);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  }
+  .plan-bar .swap {
+    background: var(--surface-1);
+    border-radius: 999px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   }
   .live-status {
@@ -1339,62 +1396,6 @@ a.button:hover {
 
 .trip h2 {
   margin-top: 0;
-}
-
-.endpoints {
-  position: relative;
-  display: grid;
-  gap: 6px;
-  padding-right: 44px;
-}
-
-.endpoint {
-  display: grid;
-  grid-template-columns: 3em 1fr;
-  align-items: start;
-  gap: 8px;
-}
-
-.endpoint-label {
-  padding-top: 8px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.endpoint-value {
-  text-align: left;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.endpoint-edit input {
-  width: 100%;
-}
-
-.endpoint-options {
-  list-style: none;
-  margin: 4px 0;
-  padding: 0;
-  max-height: 260px;
-  overflow: auto;
-}
-
-.endpoint-options button {
-  width: 100%;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.swap {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 1.2rem;
 }
 
 .when-row select,

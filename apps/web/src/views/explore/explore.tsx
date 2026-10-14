@@ -28,7 +28,8 @@ import { RouteEditorPanel } from "./route-editor.tsx";
 import { RoutesNow } from "./routes-now.tsx";
 import { TripPanel } from "./trip.tsx";
 import { ago } from "./parts.tsx";
-import { SearchBox } from "./search.tsx";
+import { PlanBar } from "./search.tsx";
+import { startOf } from "./endpoints.ts";
 import { StopPanel } from "./stop.tsx";
 import { VehiclePanel } from "./vehicle.tsx";
 
@@ -189,7 +190,7 @@ export const ExploreView = (props: {
   return (
     <div ref={setRoot} class="explore" data-panel={route().page === "map" ? "closed" : "open"}>
       <aside class="side">
-        <SearchBox hash={hash()} city={props.city.id} />
+        <PlanBar hash={hash()} city={props.city.id} stops={stopsReady} />
         <p class={`live-status ${props.live().status}`} role="status" aria-live="polite">
           <span class="live-dot" aria-hidden="true" />
           {status()}
@@ -225,7 +226,7 @@ export const ExploreView = (props: {
                           class="quick-trip"
                           href={href({
                             page: "trip",
-                            from: { kind: "here" },
+                            from: startOf(props.city.id),
                             to: { kind: "place", id: place.id },
                           })}
                         >
@@ -233,12 +234,6 @@ export const ExploreView = (props: {
                         </a>
                       )}
                     </For>
-                    <a
-                      class="quick-trip primary"
-                      href={href({ page: "trip", from: { kind: "here" }, to: undefined })}
-                    >
-                      Plan a trip
-                    </a>
                   </div>
                   <RoutesNow
                     hash={hash()}
@@ -246,7 +241,7 @@ export const ExploreView = (props: {
                     timeZone={props.city.timezone}
                     map={map}
                   />
-                  <p>Tap a vehicle or a stop on the map, or search above.</p>
+                  <p>Tap a vehicle or a stop on the map for its details.</p>
                   <p class="muted small">
                     Long-press (or right-click) anywhere to save a place or an interchange area
                     there.

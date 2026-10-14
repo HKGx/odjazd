@@ -1,3 +1,4 @@
+import { startOf } from "./endpoints.ts";
 import { type CityId, distanceMeters, InterchangeArea } from "@odjazd/model";
 import { type LiveDto, type StopBoardDto, TimetableClient } from "@odjazd/worker";
 import { Schema } from "effect";
@@ -114,7 +115,7 @@ export const StopPanel = (props: {
             class="button small"
             href={href({
               page: "trip",
-              from: { kind: "here" },
+              from: startOf(props.city),
               to: { kind: "stop", group: board().stop.group },
             })}
           >

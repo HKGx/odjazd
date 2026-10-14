@@ -45,7 +45,8 @@ import { slugify } from "../../slug.ts";
 import { preferences, useCity, withStore } from "../../user.ts";
 import { takeHandoff } from "./handoff.ts";
 import { LineBadge } from "./parts.tsx";
-import { LegChips, nearestStop } from "./trip.tsx";
+import { nearestStop } from "./endpoints.ts";
+import { LegChips } from "./trip.tsx";
 
 const stateLabel = { any: "any", preferred: "preferred", avoided: "avoided" } as const;
 

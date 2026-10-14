@@ -31,32 +31,10 @@ import { kindIcon, preferences, useCity } from "../../user.ts";
 import { fromJourney } from "../../route-draft.ts";
 import { longPress } from "../../press.ts";
 import { editDraft } from "./handoff.ts";
+import { nearestStop, type Resolved, resolver } from "./endpoints.ts";
 import { LineBadge, LiveTag } from "./parts.tsx";
 
 type Ride = Extract<PlanLegDto, { _tag: "Ride" }>;
-
-interface Resolved {
-  readonly label: string;
-  readonly endpoint: PlanEndpoint | undefined;
-  /** Why there's no endpoint yet (e.g. waiting for a location fix). */
-  readonly pending?: string;
-}
-
-/** Name of the closest stop group, for labelling a map point. */
-export const nearestStop = (stops: StopsDto | undefined, lat: number, lon: number) => {
-  if (stops === undefined) return undefined;
-  let best: string | undefined;
-  let bestD = 0.004 ** 2;
-  const k = Math.cos((lat * Math.PI) / 180) ** 2;
-  stops.names.forEach((name, i) => {
-    const d = ((stops.lat[i] ?? 0) - lat) ** 2 + ((stops.lon[i] ?? 0) - lon) ** 2 * k;
-    if (d < bestD) {
-      bestD = d;
-      best = name;
-    }
-  });
-  return best;
-};
 
 const walkTime = (seconds: number) => (seconds < 60 ? "<1 min" : duration(seconds));
 
@@ -66,104 +44,6 @@ const duration = (seconds: number) => {
 };
 
 /** Pick an endpoint: this device's location, a saved place, or a stop by name. */
-const EndpointField = (props: {
-  label: string;
-  value: Resolved | undefined;
-  hash: string;
-  city: CityId;
-  onPick: (place: Place) => void;
-}) => {
-  const [editing, setEditing] = createSignal(false);
-  const [text, setText] = createSignal("");
-  const records = useCity(() => props.city);
-  const hits = createEffectMemo(() => {
-    const query = { hash: props.hash, text: text(), limit: 6 };
-    if (!editing() || query.text.trim() === "") return Effect.succeed([]);
-    return TimetableClient.use((worker) => worker.Search(query));
-  });
-  const pick = (place: Place) => {
-    setEditing(false);
-    setText("");
-    props.onPick(place);
-  };
-  return (
-    <div class="endpoint">
-      <span class="endpoint-label">{props.label}</span>
-      <Show
-        when={editing()}
-        fallback={
-          <button type="button" class="endpoint-value" onClick={() => setEditing(true)}>
-            <Show when={props.value} fallback={<span class="muted">Choose…</span>}>
-              {(value) => (
-                <>
-                  {value().label}
-                  <Show when={value().pending}>
-                    {(why) => <span class="muted small"> · {why()}</span>}
-                  </Show>
-                </>
-              )}
-            </Show>
-          </button>
-        }
-      >
-        <div class="endpoint-edit">
-          <input
-            placeholder="Stop name, or pick below"
-            value={text()}
-            onInput={(e) => setText(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setEditing(false);
-            }}
-            ref={(element) => queueMicrotask(() => element.focus())}
-          />
-          <ul class="endpoint-options" role="listbox" aria-label={`${props.label} options`}>
-            <li>
-              <button type="button" class="ghost" onClick={() => pick({ kind: "here" })}>
-                ◎ My location
-              </button>
-            </li>
-            <For each={records().places}>
-              {(place) => (
-                <li>
-                  <button
-                    type="button"
-                    class="ghost"
-                    onClick={() => pick({ kind: "place", id: place.id })}
-                  >
-                    {kindIcon[place.kind]} {place.name}
-                  </button>
-                </li>
-              )}
-            </For>
-            <Loading>
-              <For each={hits()}>
-                {(hit) => (
-                  <Show when={hit._tag === "Stop" ? hit.stop : undefined}>
-                    {(stop) => (
-                      <li>
-                        <button
-                          type="button"
-                          class="ghost"
-                          onClick={() => pick({ kind: "stop", group: stop().group })}
-                        >
-                          <span class="stop-icon" aria-hidden="true" /> {stop().name}
-                        </button>
-                      </li>
-                    )}
-                  </Show>
-                )}
-              </For>
-            </Loading>
-          </ul>
-          <button type="button" class="ghost small" onClick={() => setEditing(false)}>
-            Cancel
-          </button>
-        </div>
-      </Show>
-    </div>
-  );
-};
-
 export const LegChips = (props: { journey: JourneyDto }) => (
   <span class="chips">
     <For each={props.journey.legs}>
@@ -478,52 +358,7 @@ export const TripPanel = (props: {
     if (journey !== undefined && dialog !== undefined && !dialog.open) dialog.showModal();
   });
 
-  const resolve = (place: Place | undefined): Resolved | undefined => {
-    if (place === undefined) return undefined;
-    switch (place.kind) {
-      case "here": {
-        const position = here();
-        if (position.status === "ok") {
-          return { label: "◎ My location", endpoint: { lat: position.lat, lon: position.lon } };
-        }
-        const why =
-          position.status === "denied"
-            ? "location blocked"
-            : position.status === "unavailable"
-              ? "location unavailable"
-              : "locating…";
-        return { label: "◎ My location", endpoint: undefined, pending: why };
-      }
-      case "place": {
-        const saved = records().places.find((p) => p.id === place.id);
-        return saved === undefined
-          ? { label: "Deleted place", endpoint: undefined, pending: "pick another" }
-          : { label: `${kindIcon[saved.kind]} ${saved.name}`, endpoint: saved.point };
-      }
-      case "stop": {
-        const stops = props.stops();
-        const name = stops?.names[place.group];
-        if (stops === undefined || name === undefined) {
-          return { label: "Stop", endpoint: undefined, pending: "loading…" };
-        }
-        return {
-          label: name,
-          endpoint: {
-            lat: stops.lat[place.group] ?? 0,
-            lon: stops.lon[place.group] ?? 0,
-            group: place.group,
-          },
-        };
-      }
-      case "at": {
-        const near = nearestStop(props.stops(), place.lat, place.lon);
-        return {
-          label: near === undefined ? "◆ Point on the map" : `◆ Near ${near}`,
-          endpoint: { lat: place.lat, lon: place.lon },
-        };
-      }
-    }
-  };
+  const resolve = resolver(() => records().places, props.stops);
 
   createEffect(
     () => props.from?.kind === "here" || props.to?.kind === "here",
@@ -620,31 +455,6 @@ export const TripPanel = (props: {
 
   return (
     <article class="panel-body trip">
-      <h2>Trip</h2>
-      <div class="endpoints">
-        <EndpointField
-          label="From"
-          value={from()}
-          hash={props.hash}
-          city={props.city}
-          onPick={(place) => go({ from: place })}
-        />
-        <EndpointField
-          label="To"
-          value={to()}
-          hash={props.hash}
-          city={props.city}
-          onPick={(place) => go({ to: place })}
-        />
-        <button
-          type="button"
-          class="ghost swap"
-          aria-label="Swap start and destination"
-          onClick={() => go({ from: props.to, to: props.from })}
-        >
-          ⇅
-        </button>
-      </div>
       <div class="actions when-row">
         <select
           aria-label="When"
@@ -675,7 +485,7 @@ export const TripPanel = (props: {
         when={from()?.endpoint !== undefined && to()?.endpoint !== undefined}
         fallback={
           <p class="muted">
-            Choose where you start and where you're going. Long-press the map to use any point.
+            Choose where you're going above, or long-press the map to use any point.
           </p>
         }
       >
