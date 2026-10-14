@@ -17,7 +17,7 @@ import {
 import { createEffectMemo, createEffectStream } from "./effect-solid.ts";
 import { megabytes } from "./format.ts";
 import { preferences, updatePreferences, useCity, withStore } from "./user.ts";
-import { href, onMap, route } from "./route.ts";
+import { href, navigate, onMap, route } from "./route.ts";
 import { AboutView } from "./views/about.tsx";
 import { BoardView } from "./views/board.tsx";
 import { CompareView } from "./views/compare.tsx";
@@ -110,6 +110,15 @@ const City = (props: { city: CitySummary; cities: CityList }) => {
     return Stream.unwrap(TimetableClient.use((worker) => Effect.succeed(worker.Live({ city }))));
   }, initialLive);
   const dark = useDark();
+  // Stops, vehicles and trips are per network: panels about the old city close.
+  createEffect(
+    () => props.city.id,
+    (_city, previous) => {
+      if (previous !== undefined && onMap(route()) && route().page !== "map") {
+        navigate({ page: "map" });
+      }
+    },
+  );
   return (
     <Loading
       fallback={
@@ -122,6 +131,16 @@ const City = (props: { city: CitySummary; cities: CityList }) => {
         </p>
       }
     >
+      {/* Switching city: the old network stays on screen until the new one is in. */}
+      <Show when={isPending(() => loaded())}>
+        <p class="notice" role="status">
+          Loading the {props.city.name["en"]} timetable
+          {props.city.downloadBytes === undefined
+            ? ""
+            : ` (${megabytes(props.city.downloadBytes)})`}
+          …
+        </p>
+      </Show>
       <Show when={loaded().source === "cache"}>
         <p class="notice" role="status">
           <span aria-hidden="true">●</span> Offline: using the timetable saved on this device.
@@ -129,7 +148,13 @@ const City = (props: { city: CitySummary; cities: CityList }) => {
       </Show>
       <Switch>
         <Match when={onMap(route())}>
-          <ExploreView city={props.city} loaded={loaded()} live={live} dark={dark} />
+          <ExploreView
+            city={props.city}
+            cities={props.cities.cities}
+            loaded={loaded()}
+            live={live}
+            dark={dark}
+          />
         </Match>
         <Match when={route().page === "compare"}>
           <CompareView loaded={loaded()} intent={intent()} />
@@ -205,10 +230,11 @@ const Shell = (props: { cities: CityList }) => {
         <Nav />
       </header>
       <main class={onMap(route()) ? "full" : undefined}>
-        <Show when={city()} keyed fallback={<p class="empty">No cities are available yet.</p>}>
+        {/* Not keyed: switching city keeps the map and panels, only the network changes. */}
+        <Show when={city()} fallback={<p class="empty">No cities are available yet.</p>}>
           {(selected) => (
             <Errored fallback={(error, reset) => <Failure error={error()} reset={reset} />}>
-              <City city={selected} cities={props.cities} />
+              <City city={selected()} cities={props.cities} />
             </Errored>
           )}
         </Show>

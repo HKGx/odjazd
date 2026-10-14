@@ -30,6 +30,24 @@ export interface LiveMapOptions {
   readonly onBackground: () => void;
   /** Long-press (touch) or right-click on the map. */
   readonly onPoint: (lat: number, lon: number) => void;
+  /** A tap on another city's label. */
+  readonly onCity: (id: string) => void;
+  /** The user (not the app) finished moving the map. */
+  readonly onMoved: (center: { readonly lat: number; readonly lon: number }, zoom: number) => void;
+}
+
+/** Every city the app knows; the others show as labels when zoomed out. */
+export interface CityMark {
+  readonly id: string;
+  readonly name: string;
+  readonly center: { readonly lat: number; readonly lon: number };
+}
+
+export interface Bounds {
+  readonly south: number;
+  readonly west: number;
+  readonly north: number;
+  readonly east: number;
 }
 
 export interface UserLayers {
@@ -150,6 +168,10 @@ export class LiveMap {
   private pin: Pin | undefined;
   private journey: JourneyShape | undefined;
   private draft: DraftShape | undefined;
+  private cities: { readonly marks: ReadonlyArray<CityMark>; readonly active: string } = {
+    marks: [],
+    active: "",
+  };
   private bottomInset = 0;
   /** Last point we centered, until the user moves the map themselves. */
   private target: { lat: number; lon: number; zoom: number | undefined } | undefined;
@@ -181,13 +203,22 @@ export class LiveMap {
     );
     this.map.on("style.load", () => this.install());
     this.map.on("dragstart", () => (this.target = undefined));
+    // Only user gestures carry the DOM event; our own camera moves don't.
+    this.map.on("moveend", (event) => {
+      if (event.originalEvent === undefined) return;
+      this.options.onMoved(this.center(), this.map.getZoom());
+    });
     this.map.on("click", (event) => {
       const hits = this.map.queryRenderedFeatures(event.point, {
-        layers: ["vehicles", "stops", "route-stops"].filter((id) => this.map.getLayer(id)),
+        layers: ["vehicles", "stops", "route-stops", "cities"].filter((id) =>
+          this.map.getLayer(id),
+        ),
       });
       const vehicle = hits.find((hit) => hit.layer.id === "vehicles");
-      const stop = hits.find((hit) => hit.layer.id !== "vehicles");
+      const city = hits.find((hit) => hit.layer.id === "cities");
+      const stop = hits.find((hit) => hit.layer.id !== "vehicles" && hit.layer.id !== "cities");
       if (vehicle !== undefined) this.options.onVehicle(String(vehicle.properties["id"]));
+      else if (city !== undefined) this.options.onCity(String(city.properties["id"]));
       else if (stop !== undefined) this.options.onStop(Number(stop.properties["group"]));
       else this.options.onBackground();
     });
@@ -213,7 +244,7 @@ export class LiveMap {
     for (const type of ["touchend", "touchcancel", "touchmove", "movestart"] as const) {
       this.map.on(type, cancel);
     }
-    for (const layer of ["vehicles", "stops", "route-stops"]) {
+    for (const layer of ["vehicles", "stops", "route-stops", "cities"]) {
       this.map.on("mouseenter", layer, () => (this.map.getCanvas().style.cursor = "pointer"));
       this.map.on("mouseleave", layer, () => (this.map.getCanvas().style.cursor = ""));
     }
@@ -509,13 +540,72 @@ export class LiveMap {
       },
     });
 
+    map.addSource("cities", { type: "geojson", data: empty });
+    map.addLayer({
+      id: "cities",
+      type: "symbol",
+      source: "cities",
+      maxzoom: 10,
+      layout: {
+        "text-field": ["get", "name"],
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 15,
+        "text-allow-overlap": true,
+      },
+      paint: {
+        "text-color": accent,
+        "text-halo-color": surface,
+        "text-halo-width": 2.5,
+        "text-opacity": ["case", ["get", "active"], 0.55, 1],
+      },
+    });
+
     this.ready = true;
+    this.drawCities();
     this.drawJourney();
     this.drawUser();
     this.drawDraft();
     this.drawStops();
     this.drawRoute();
     this.drawVehicles(performance.now());
+  }
+
+  setCities(marks: ReadonlyArray<CityMark>, active: string) {
+    this.cities = { marks, active };
+    this.drawCities();
+  }
+
+  private drawCities() {
+    if (!this.ready) return;
+    const { marks, active } = this.cities;
+    this.map.getSource<GeoJSONSource>("cities")?.setData({
+      type: "FeatureCollection",
+      features: marks.map((mark) => ({
+        type: "Feature",
+        properties: { id: mark.id, name: mark.name, active: mark.id === active },
+        geometry: { type: "Point", coordinates: [mark.center.lon, mark.center.lat] },
+      })),
+    });
+  }
+
+  center(): { lat: number; lon: number } {
+    const { lat, lng } = this.map.getCenter();
+    return { lat, lon: lng };
+  }
+
+  /** Fly over to a city, framing its network. */
+  showCity(bounds: Bounds) {
+    this.target = undefined;
+    const camera = this.map.cameraForBounds(
+      [
+        [bounds.west, bounds.south],
+        [bounds.east, bounds.north],
+      ],
+      { padding: { top: 40, left: 40, right: 40, bottom: 40 + this.bottomInset } },
+    );
+    if (camera === undefined) return;
+    // The catalog box includes outlying stops: frame the core a bit closer.
+    this.map.flyTo({ ...camera, zoom: Math.max((camera.zoom ?? 11) + 1, 11), duration: 1800 });
   }
 
   /** The user's saved areas and places (drawn under transit). */

@@ -1,4 +1,5 @@
 import type { CitySummary } from "@odjazd/api";
+import { bboxContains } from "@odjazd/model";
 import { type LiveDto, type LoadResult, type StopsDto, TimetableClient } from "@odjazd/worker";
 import { Effect, Option } from "effect";
 import {
@@ -18,7 +19,7 @@ import { createEffectMemo } from "../../effect-solid.ts";
 import type { LiveMap } from "../../map/live-map.ts";
 import { now } from "../../now.ts";
 import { href, navigate, route } from "../../route.ts";
-import { kindIcon, useCity } from "../../user.ts";
+import { kindIcon, updatePreferences, useCity } from "../../user.ts";
 import { LinePanel } from "./line.tsx";
 import { mapPick } from "../../map/pick.ts";
 import { PointPanel } from "./point.tsx";
@@ -34,6 +35,7 @@ const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
 /** The map with search and a detail panel: stops, lines, vehicles. */
 export const ExploreView = (props: {
   city: CitySummary;
+  cities: ReadonlyArray<CitySummary>;
   loaded: LoadResult;
   live: Accessor<LiveDto>;
   dark: Accessor<boolean>;
@@ -62,6 +64,16 @@ export const ExploreView = (props: {
             : mapPick.point(lat, lon),
         onBackground: () => {
           if (route().page !== "map" && mapPick.stop === undefined) navigate({ page: "map" });
+        },
+        onCity: (id) => {
+          const city = props.cities.find((c) => c.id === id);
+          if (city !== undefined) updatePreferences({ city: city.id });
+        },
+        // Looking at another city's network (not just the country) makes it the one you're in.
+        onMoved: (center, zoom) => {
+          if (zoom < 9 || bboxContains(props.city.bbox, center)) return;
+          const city = props.cities.find((c) => bboxContains(c.bbox, center));
+          if (city !== undefined) updatePreferences({ city: city.id });
         },
       });
       setMap(instance);
@@ -112,6 +124,17 @@ export const ExploreView = (props: {
   createEffect(
     () => [map(), props.live()] as const,
     ([m, live]) => m?.setVehicles(live.vehicles),
+  );
+  createEffect(
+    () => [map(), props.city] as const,
+    ([m, city]) => {
+      if (m === undefined) return;
+      m.setCities(
+        props.cities.map((c) => ({ id: c.id, name: c.name["en"] ?? c.id, center: c.center })),
+        city.id,
+      );
+      if (!bboxContains(city.bbox, m.center())) m.showCity(city.bbox);
+    },
   );
   createEffect(
     () => [map(), props.dark()] as const,
