@@ -10,6 +10,7 @@ import { plKrosno } from "./entries/pl-krosno.ts";
 import { plLodz } from "./entries/pl-lodz.ts";
 import { plOlkusz } from "./entries/pl-olkusz.ts";
 import { plPoznan } from "./entries/pl-poznan.ts";
+import { plRybnik } from "./entries/pl-rybnik.ts";
 import { plRzeszow } from "./entries/pl-rzeszow.ts";
 import { plSiedlce } from "./entries/pl-siedlce.ts";
 import { plSzczecin } from "./entries/pl-szczecin.ts";
@@ -37,6 +38,7 @@ export const entries: ReadonlyArray<(typeof Catalog.Encoded)[number]> = [
   plOlkusz,
   plCzestochowa,
   plGdynia,
+  plRybnik,
 ];
 
 /** The validated catalog. Fails with a `SchemaError` describing every invalid field. */
