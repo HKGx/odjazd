@@ -100,8 +100,9 @@ export const fromCorridor = (
             leg.allow.lines === undefined ? (leg.prefer ?? []) : (leg.prefer ?? leg.allow.lines),
           avoid: leg.avoid ?? [],
           only: leg.allow.lines !== undefined,
+          // Without its own prefer list, every allowed line counts as preferred.
           allowed: leg.allow.lines?.filter(
-            (line) => !(leg.prefer ?? leg.allow.lines)?.includes(line),
+            (line) => leg.prefer !== undefined && !leg.prefer.includes(line),
           ),
           modes: leg.allow.modes ?? [],
           maxWalkMin: leg.maxWalkMin,
