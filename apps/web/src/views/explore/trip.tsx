@@ -285,6 +285,12 @@ const LegDetail = (props: {
   </Switch>
 );
 
+/** A journey's identity across refreshes: the vehicles it rides (delays move the times). */
+const journeyKey = (journey: JourneyDto) =>
+  `${journey.route?.slug ?? ""}|${journey.legs
+    .map((leg) => (leg._tag === "Ride" ? leg.trip : "walk"))
+    .join(">")}`;
+
 /** Where and when the rider stands before each ride of a journey. */
 const rideContexts = (journey: JourneyDto) => {
   const contexts: Array<{ ready: number; position: { lat: number; lon: number }; first: boolean }> =
@@ -392,7 +398,9 @@ export const TripPanel = (props: {
 }) => {
   const records = useCity(() => props.city);
   const [departAt, setDepartAt] = createSignal<string>();
-  const [selected, setSelected] = createSignal<number>();
+  // The journey the user opened, by the vehicles it rides (stable across live refreshes);
+  // `undefined` follows the suggestion, `null` means the user closed it.
+  const [selected, setSelected] = createSignal<string | null>();
 
   const resolve = (place: Place | undefined): Resolved | undefined => {
     if (place === undefined) return undefined;
@@ -487,7 +495,13 @@ export const TripPanel = (props: {
   const shown = createMemo(() => {
     const plan = planned();
     if (plan === undefined) return undefined;
-    return plan.journeys[selected() ?? plan.recommended ?? 0];
+    const key = selected();
+    if (key === null) return undefined;
+    const suggested = plan.journeys[plan.recommended ?? 0];
+    // A picked journey that's gone (its vehicle has left) falls back to the suggestion.
+    return key === undefined
+      ? suggested
+      : (plan.journeys.find((j) => journeyKey(j) === key) ?? suggested);
   });
   createEffect(
     () => [props.map(), shown()] as const,
@@ -515,7 +529,11 @@ export const TripPanel = (props: {
       untrack(() => map.fitPoints([a, b], 60));
     },
   );
-  createEffect(result, () => setSelected(undefined));
+  // A new question starts from the suggestion; a refresh of the same one keeps the pick.
+  createEffect(
+    () => [props.from, props.to, departAt()] as const,
+    () => setSelected(undefined),
+  );
 
   const go = (next: { from?: Place | undefined; to?: Place | undefined }) =>
     navigate({
@@ -598,43 +616,43 @@ export const TripPanel = (props: {
               )}
             </Show>
             <ol class="journeys" data-pending={isPending(() => result())}>
-              <For each={planned()?.journeys ?? []}>
+              <For each={planned()?.journeys ?? []} keyed={journeyKey}>
                 {(journey, i) => {
-                  const open = () => shown() === journey;
+                  const open = () => shown() === journey();
                   return (
                     <li class={{ journey: true, open: open() }}>
                       <button
                         type="button"
                         class="journey-head"
                         aria-expanded={open() ? "true" : "false"}
-                        onClick={() => setSelected(open() ? undefined : i())}
+                        onClick={() => setSelected(open() ? null : journeyKey(journey()))}
                       >
                         <span class="journey-times">
                           <strong>
-                            {clock(journey.departAt, props.timeZone)} →{" "}
-                            {clock(journey.arriveAt, props.timeZone)}
+                            {clock(journey().departAt, props.timeZone)} →{" "}
+                            {clock(journey().arriveAt, props.timeZone)}
                           </strong>
                           <span class="muted small">
-                            {duration(journey.arriveAt - journey.departAt)}
-                            {journey.rides > 1 ? ` · ${journey.rides - 1} change` : ""}
-                            {journey.rides > 2 ? "s" : ""}
+                            {duration(journey().arriveAt - journey().departAt)}
+                            {journey().rides > 1 ? ` · ${journey().rides - 1} change` : ""}
+                            {journey().rides > 2 ? "s" : ""}
                           </span>
                         </span>
-                        <LegChips journey={journey} />
+                        <LegChips journey={journey()} />
                         <span class="journey-meta small">
                           <Show
-                            when={journey.departAt - now() > 30}
+                            when={journey().departAt - now() > 30}
                             fallback={<strong class="leave-now">leave now</strong>}
                           >
-                            leave in {duration(journey.departAt - now())}
+                            leave in {duration(journey().departAt - now())}
                           </Show>
-                          <Show when={journey.live}>
+                          <Show when={journey().live}>
                             <span class="live-tag">
                               <span class="live-dot" aria-hidden="true" />
                               live
                             </span>
                           </Show>
-                          <Show when={journey.route}>
+                          <Show when={journey().route}>
                             {(route) => <span class="badge route-tag">↝ {route().name}</span>}
                           </Show>
                           <Show when={planned()?.recommended === i()}>
@@ -643,25 +661,26 @@ export const TripPanel = (props: {
                         </span>
                       </button>
                       <Show when={open()}>
-                        <Show when={journey.reasons.length > 0}>
+                        <Show when={journey().reasons.length > 0}>
                           <ul class="reasons small">
-                            <For each={journey.reasons}>{(reason) => <li>{reason}</li>}</For>
+                            <For each={journey().reasons}>{(reason) => <li>{reason}</li>}</For>
                           </ul>
                         </Show>
                         <ol class="legs">
-                          <For each={journey.legs}>
+                          <For each={journey().legs} keyed={false}>
                             {(leg, j) => (
                               <LegDetail
-                                leg={leg}
+                                leg={leg()}
                                 timeZone={props.timeZone}
                                 live={props.live}
-                                last={j() === journey.legs.length - 1}
+                                last={j === journey().legs.length - 1}
                                 hash={props.hash}
                                 context={
-                                  leg._tag === "Ride"
-                                    ? rideContexts(journey)[
-                                        journey.legs.slice(0, j()).filter((l) => l._tag === "Ride")
-                                          .length
+                                  leg()._tag === "Ride"
+                                    ? rideContexts(journey())[
+                                        journey()
+                                          .legs.slice(0, j)
+                                          .filter((l) => l._tag === "Ride").length
                                       ]
                                     : undefined
                                 }
@@ -669,22 +688,24 @@ export const TripPanel = (props: {
                             )}
                           </For>
                           <li class="leg arrive">
-                            <span class="leg-time">{clock(journey.arriveAt, props.timeZone)}</span>
+                            <span class="leg-time">
+                              {clock(journey().arriveAt, props.timeZone)}
+                            </span>
                             <span>Arrive · {to()?.label}</span>
                           </li>
                         </ol>
                         <div class="actions journey-actions">
                           <Show
-                            when={journey.route}
+                            when={journey().route}
                             fallback={
-                              <Show when={journey.rides > 0}>
+                              <Show when={journey().rides > 0}>
                                 <button
                                   type="button"
                                   class="ghost small"
                                   onClick={() =>
                                     editDraft(
                                       fromJourney(
-                                        journey,
+                                        journey(),
                                         records().areas.map((r) => r.area),
                                         props.city,
                                       ),
