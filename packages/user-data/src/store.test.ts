@@ -6,7 +6,6 @@ import { KeyValueStore } from "effect/persistence";
 import { TestClock } from "effect/testing";
 import { mergeRecords, cityRecords, UserDataStore } from "./store.ts";
 import { defaultPreferences, emptyUserData, type UserRecord, UserDataInvalid } from "./schema.ts";
-import { lodzAreas, lodzCorridors } from "./seeds/pl-lodz.ts";
 
 const storageKey = "odjazd/user-data";
 const t0 = Date.parse("2026-10-13T06:00:00Z");
@@ -93,27 +92,6 @@ describe("UserDataStore", () => {
         expect(data.records[0]?.origin).toBe("user");
       }).pipe(Effect.provide(memory)),
     );
-
-    it.effect("editing a seeded record keeps its seed origin", () =>
-      Effect.gen(function* () {
-        yield* TestClock.setTime(t0);
-        const store = yield* UserDataStore;
-        yield* store.seed(lodz);
-        const seeded = (yield* store.get).records.find((r) => r._tag === "Area");
-        expect(seeded?.origin).toBe("seed");
-        if (seeded?._tag !== "Area") return;
-
-        yield* TestClock.setTime(t0 + 1_000);
-        yield* store.saveArea({
-          _tag: "Area",
-          id: seeded.id,
-          area: { ...seeded.area, name: "Edited" },
-        });
-        const after = (yield* store.get).records.find((r) => r.id === seeded.id);
-        expect(after?.origin).toBe("seed");
-        expect(after?.updatedAt).toBe(t0 + 1_000);
-      }).pipe(Effect.provide(memory)),
-    );
   });
 
   describe("invalid drafts", () => {
@@ -167,24 +145,6 @@ describe("UserDataStore", () => {
   });
 
   describe("seed", () => {
-    it.effect("adds the Łódź starter areas and corridors with origin seed, once", () =>
-      Effect.gen(function* () {
-        yield* TestClock.setTime(t0);
-        const store = yield* UserDataStore;
-        yield* store.seed(lodz);
-
-        const data = yield* store.get;
-        expect(data.seeded).toEqual([lodz]);
-        const areas = data.records.filter((r) => r._tag === "Area");
-        const corridors = data.records.filter((r) => r._tag === "Corridor");
-        expect(areas).toHaveLength(lodzAreas.length);
-        expect(corridors).toHaveLength(lodzCorridors.length);
-        expect(data.records.every((r) => r.origin === "seed" && r.updatedAt === t0)).toBe(true);
-        expect(new Set(data.records.map((r) => r.id)).size).toBe(data.records.length);
-        expect(cityRecords(data, lodz).areas).toHaveLength(lodzAreas.length);
-      }).pipe(Effect.provide(memory)),
-    );
-
     it.effect("calling again adds nothing", () =>
       Effect.gen(function* () {
         const store = yield* UserDataStore;
@@ -195,42 +155,14 @@ describe("UserDataStore", () => {
       }).pipe(Effect.provide(memory)),
     );
 
-    it.effect("deleting a seeded record and seeding again does not bring it back", () =>
+    it.effect("a city without seeds adds nothing and isn't marked as offered", () =>
       Effect.gen(function* () {
         const store = yield* UserDataStore;
         yield* store.seed(lodz);
-        const [victim] = (yield* store.get).records;
-        if (victim === undefined) throw new Error("seed produced no records");
-        yield* store.remove(victim.id);
-        const afterRemove = yield* store.get;
-
-        yield* store.seed(lodz);
-        const data = yield* store.get;
-        expect(data.records).toEqual(afterRemove.records);
-        expect(cityRecords(data, lodz).areas).toHaveLength(lodzAreas.length - 1);
-      }).pipe(Effect.provide(memory)),
-    );
-
-    it.effect("is remembered across reloads", () =>
-      Effect.gen(function* () {
-        const kv = yield* memoryKv;
-        const first = yield* UserDataStore.pipe(Effect.provide(storeOver(kv)));
-        yield* first.seed(lodz);
-        const count = (yield* first.get).records.length;
-
-        const reloaded = yield* UserDataStore.pipe(Effect.provide(storeOver(kv)));
-        yield* reloaded.seed(lodz);
-        expect((yield* reloaded.get).records).toHaveLength(count);
-      }),
-    );
-
-    it.effect("a city without seeds only records that it was offered", () =>
-      Effect.gen(function* () {
-        const store = yield* UserDataStore;
         yield* store.seed(nowhere);
         const data = yield* store.get;
         expect(data.records).toEqual([]);
-        expect(data.seeded).toEqual([nowhere]);
+        expect(data.seeded).toEqual([]);
       }).pipe(Effect.provide(memory)),
     );
   });
@@ -288,8 +220,9 @@ describe("UserDataStore", () => {
       Effect.gen(function* () {
         yield* TestClock.setTime(t0);
         const source = yield* UserDataStore;
-        yield* source.seed(lodz);
         yield* source.saveArea({ _tag: "Area", area: area("x-y") });
+        yield* source.saveArea({ _tag: "Area", area: area("a-b") });
+        yield* source.saveArea({ _tag: "Area", area: area("c-d") });
         yield* source.setPreferences({ walkingSpeedKmh: 5, theme: "dark" });
         const json = yield* source.exportJson;
 

@@ -150,6 +150,8 @@ export class UserDataStore extends Context.Service<
           Effect.gen(function* () {
             if ((yield* SubscriptionRef.get(state)).seeded.includes(city)) return;
             const intent = seedIntent(city);
+            // Nothing to offer isn't an offer: seeds added for the city later still arrive.
+            if (intent.areas.length === 0 && intent.corridors.length === 0) return;
             const now = yield* Clock.currentTimeMillis;
             const records: Array<UserRecord> = [];
             for (const area of intent.areas) {
