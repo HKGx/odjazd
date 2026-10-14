@@ -45,10 +45,11 @@ export class Realtime extends Context.Service<
             const feed = entry.feeds.realtime.find((f) => f.type === type);
             if (feed === undefined) return undefined;
             const override = yield* realtimeOverride(entry.id, feed.id);
-            return Option.match(override, {
-              onNone: () => feed,
-              onSome: (url) => ({ ...feed, url }),
-            });
+            if (Option.isSome(override)) {
+              yield* Effect.logInfo(`${entry.id}/${feed.id}: realtime URL override active`);
+              return { ...feed, url: override.value };
+            }
+            return feed;
           });
           const positionsFeed = yield* feedOf("vehicle_positions");
           if (positionsFeed === undefined) continue;
