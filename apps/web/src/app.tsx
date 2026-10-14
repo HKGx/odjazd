@@ -16,10 +16,18 @@ import {
 } from "solid-js";
 import { createEffectMemo, createEffectStream } from "./effect-solid.ts";
 import { megabytes } from "./format.ts";
-import { preferences, updatePreferences, useCity, withStore } from "./user.ts";
+import {
+  chosenCity,
+  preferences,
+  updatePreferences,
+  useCity,
+  userDataLoaded,
+  withStore,
+} from "./user.ts";
 import { href, navigate, onMap, route } from "./route.ts";
 import { AboutView } from "./views/about.tsx";
 import { BoardView } from "./views/board.tsx";
+import { ChooseCity } from "./views/choose-city.tsx";
 import { CompareView } from "./views/compare.tsx";
 import { ExploreView, prefersDark } from "./views/explore/explore.tsx";
 import { PlacesView } from "./views/places.tsx";
@@ -173,7 +181,7 @@ const City = (props: { city: CitySummary; cities: CityList }) => {
           <PlacesView city={props.city} />
         </Match>
         <Match when={route().page === "settings"}>
-          <SettingsView cities={props.cities} />
+          <SettingsView />
         </Match>
         <Match when={route().page === "about"}>
           <AboutView city={props.city} loaded={loaded()} />
@@ -196,16 +204,19 @@ const City = (props: { city: CitySummary; cities: CityList }) => {
 };
 
 const Shell = (props: { cities: CityList }) => {
-  const city = createMemo(
-    () => props.cities.cities.find((c) => c.id === preferences().city) ?? props.cities.cities[0],
-  );
+  const city = createMemo(() => {
+    const list = props.cities.cities;
+    if (list.length === 1) return list[0];
+    const id = chosenCity();
+    return id === undefined ? undefined : (list.find((c) => c.id === id) ?? list[0]);
+  });
   return (
     <>
       <header>
         <a class="brand" href={href({ page: "map" })}>
           odjazd
         </a>
-        <Show when={props.cities.cities.length > 1}>
+        <Show when={props.cities.cities.length > 1 && city() !== undefined}>
           <label class="city-picker">
             <span class="sr-only">City</span>
             <select
@@ -231,7 +242,19 @@ const Shell = (props: { cities: CityList }) => {
       </header>
       <main class={onMap(route()) ? "full" : undefined}>
         {/* Not keyed: switching city keeps the map and panels, only the network changes. */}
-        <Show when={city()} fallback={<p class="empty">No cities are available yet.</p>}>
+        <Show
+          when={city()}
+          fallback={
+            <Show
+              when={props.cities.cities.length > 0}
+              fallback={<p class="empty">No cities are available yet.</p>}
+            >
+              <Show when={userDataLoaded()}>
+                <ChooseCity cities={props.cities.cities} />
+              </Show>
+            </Show>
+          }
+        >
           {(selected) => (
             <Errored fallback={(error, reset) => <Failure error={error()} reset={reset} />}>
               <City city={selected()} cities={props.cities} />

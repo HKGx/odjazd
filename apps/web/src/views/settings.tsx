@@ -1,6 +1,5 @@
-import type { CityList } from "@odjazd/api";
 import type { Theme } from "@odjazd/user-data";
-import { For, Show } from "solid-js";
+import { For } from "solid-js";
 import { preferences, updatePreferences } from "../user.ts";
 
 const themes: ReadonlyArray<{ value: Theme; label: string }> = [
@@ -10,7 +9,7 @@ const themes: ReadonlyArray<{ value: Theme; label: string }> = [
 ];
 
 /** Preferences; each one changes what the trip and comparison views compute. */
-export const SettingsView = (props: { cities: CityList }) => (
+export const SettingsView = () => (
   <section class="settings">
     <div class="card">
       <h2>Travel</h2>
@@ -98,25 +97,6 @@ export const SettingsView = (props: { cities: CityList }) => (
           )}
         </For>
       </fieldset>
-      <Show when={props.cities.cities.length > 1}>
-        <label class="stack">
-          City
-          <select
-            onChange={(e) => {
-              const id = props.cities.cities.find((c) => c.id === e.currentTarget.value)?.id;
-              if (id !== undefined) updatePreferences({ city: id });
-            }}
-          >
-            <For each={props.cities.cities}>
-              {(c) => (
-                <option value={c.id} selected={c.id === preferences().city}>
-                  {c.name["en"] ?? c.id}
-                </option>
-              )}
-            </For>
-          </select>
-        </label>
-      </Show>
     </div>
   </section>
 );
