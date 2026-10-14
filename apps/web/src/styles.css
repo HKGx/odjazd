@@ -1876,18 +1876,24 @@ button.danger {
   rotate: 225deg;
 }
 
+/* Same-width buttons, each an icon over a short label, like the dock's tabs. */
 .balloon button {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  height: 40px;
-  padding: 0 14px 0 11px;
+  justify-content: center;
+  gap: 2px;
+  width: 58px;
+  height: 52px;
+  min-height: 0;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: none;
   color: var(--text-secondary);
-  font-size: 0.9rem;
-  white-space: nowrap;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
   transition: background-color 150ms;
 }
 
@@ -1898,12 +1904,6 @@ button.danger {
 .balloon button.to {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
-.balloon button.more {
-  width: 40px;
-  padding: 0;
-  justify-content: center;
 }
 
 .balloon .icon {

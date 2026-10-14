@@ -1,13 +1,13 @@
 import type { CityId } from "@odjazd/model";
 import { onCleanup } from "solid-js";
-import { MoreIcon } from "../../icons.tsx";
+import { FinishIcon, MoreIcon, StartIcon } from "../../icons.tsx";
 import { navigate, type Place } from "../../route.ts";
 import { draftOf, setDraft } from "./endpoints.ts";
 
 /** Room the balloon needs above a point before it opens below it instead. */
 const ROOM_ABOVE = 84;
 /** Half the balloon's width, so it stays inside the map near the edges. */
-const HALF = 120;
+const HALF = 95;
 
 /**
  * What to do with a long-pressed (or right-clicked) point, right where it is:
@@ -60,10 +60,12 @@ export const Balloon = (props: {
         }}
       >
         <button type="button" onClick={() => use("from")}>
-          From here
+          <StartIcon />
+          <span>From</span>
         </button>
         <button type="button" class="to" onClick={() => use("to")}>
-          To here
+          <FinishIcon />
+          <span>To</span>
         </button>
         <button
           type="button"
@@ -76,6 +78,7 @@ export const Balloon = (props: {
           }}
         >
           <MoreIcon />
+          <span>More</span>
         </button>
       </div>
     </>

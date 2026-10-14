@@ -65,3 +65,18 @@ export const MoreIcon = () => (
     <path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3" />
   </Icon>
 );
+
+/** A trip's start: where you set off. */
+export const StartIcon = () => (
+  <Icon>
+    <circle cx="12" cy="12" r="7" />
+    <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+  </Icon>
+);
+
+/** A trip's end: where you're going. */
+export const FinishIcon = () => (
+  <Icon>
+    <path d="M6 21V4M6 4h11l-2.5 4L17 12H6" />
+  </Icon>
+);
