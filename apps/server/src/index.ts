@@ -30,8 +30,12 @@ const main = Effect.gen(function* () {
           cacheControl: "public, max-age=31536000, immutable",
           mimeTypes: { mjs: "text/javascript" },
         }),
-        // index.html points at the current hashes: always revalidate.
-        HttpStaticServer.layer({ root, cacheControl: "no-cache" }),
+        // index.html points at the current hashes, sw.js must update: always revalidate.
+        HttpStaticServer.layer({
+          root,
+          cacheControl: "no-cache",
+          mimeTypes: { webmanifest: "application/manifest+json" },
+        }),
       ),
   });
   const server = HttpRouter.serve(Layer.mergeAll(api, health, web)).pipe(
