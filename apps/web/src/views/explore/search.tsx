@@ -164,6 +164,14 @@ const EndField = (props: {
   );
   const shown = () => open() && list().length + (query() === "" ? 0 : 1) > 0;
 
+  // The highlighted row stays in view as the arrows move through a long list.
+  createEffect(
+    () => (shown() ? `${props.id}-option-${active()}` : undefined),
+    (id) => {
+      if (id !== undefined) document.getElementById(id)?.scrollIntoView({ block: "nearest" });
+    },
+  );
+
   const close = () => {
     setOpen(false);
     setText("");
@@ -193,6 +201,11 @@ const EndField = (props: {
         role="combobox"
         aria-expanded={shown() ? "true" : "false"}
         aria-controls={`${props.id}-results`}
+        aria-autocomplete="list"
+        // The highlighted row, so screen readers announce it as the arrows move.
+        aria-activedescendant={
+          shown() && list()[active()] !== undefined ? `${props.id}-option-${active()}` : undefined
+        }
         // Editing starts empty; otherwise the field shows what's chosen.
         value={open() ? text() : (props.value ?? "")}
         onInput={(e) => type(e.currentTarget.value)}
@@ -206,6 +219,12 @@ const EndField = (props: {
           } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setActive((i) => Math.max(0, i - 1));
+          } else if (e.key === "Home" && count > 0) {
+            e.preventDefault();
+            setActive(0);
+          } else if (e.key === "End" && count > 0) {
+            e.preventDefault();
+            setActive(count - 1);
           } else if (e.key === "Enter") {
             choose(list()[active()]);
           } else if (e.key === "Escape") {
@@ -227,6 +246,7 @@ const EndField = (props: {
             >
               {(hit, index) => (
                 <li
+                  id={`${props.id}-option-${index()}`}
                   role="option"
                   aria-selected={index() === active() ? "true" : "false"}
                   onMouseDown={(e) => {
