@@ -604,9 +604,42 @@ main.full {
   height: 100%;
 }
 
-.explore .map {
+.explore .map-area {
   position: relative;
   min-height: 0;
+}
+
+.explore .map {
+  position: absolute;
+  inset: 0;
+}
+
+/* "Now in Gdańsk": moving the map switched the city. */
+.arrived {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+  pointer-events: none;
+  animation: arrived 3s ease forwards;
+}
+
+@keyframes arrived {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .side {
@@ -867,9 +900,13 @@ button.small {
     display: block;
     position: relative;
   }
-  .explore .map {
+  .explore .map-area {
     position: absolute;
     inset: 0;
+  }
+  .arrived {
+    top: auto;
+    bottom: calc(var(--sheet, 0px) + 12px);
   }
   .side {
     position: absolute;

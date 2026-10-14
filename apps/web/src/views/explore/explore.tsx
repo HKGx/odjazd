@@ -11,6 +11,7 @@ import {
   For,
   Loading,
   Match,
+  onCleanup,
   Show,
   Switch,
   untrack,
@@ -43,6 +44,16 @@ export const ExploreView = (props: {
   const hash = () => props.loaded.manifest.timetable.hash;
   const [container, setContainer] = createSignal<HTMLDivElement>();
   const [map, setMap] = createSignal<LiveMap>();
+  // Says so when moving the map (not the picker) changed the city.
+  const [arrived, setArrived] = createSignal<string>();
+  let arrivedTimer: ReturnType<typeof setTimeout> | undefined;
+  const switchTo = (city: CitySummary) => {
+    updatePreferences({ city: city.id });
+    setArrived(city.name["en"] ?? city.id);
+    clearTimeout(arrivedTimer);
+    arrivedTimer = setTimeout(() => setArrived(undefined), 3000);
+  };
+  onCleanup(() => clearTimeout(arrivedTimer));
 
   // MapLibre is ~1 MB: load it only when the map is shown.
   createEffect(container, (element) => {
@@ -67,13 +78,13 @@ export const ExploreView = (props: {
         },
         onCity: (id) => {
           const city = props.cities.find((c) => c.id === id);
-          if (city !== undefined) updatePreferences({ city: city.id });
+          if (city !== undefined) switchTo(city);
         },
         // Looking at another city's network (not just the country) makes it the one you're in.
         onMoved: (center, zoom) => {
           if (zoom < 9 || bboxContains(props.city.bbox, center)) return;
           const city = props.cities.find((c) => bboxContains(c.bbox, center));
-          if (city !== undefined) updatePreferences({ city: city.id });
+          if (city !== undefined) switchTo(city);
         },
       });
       setMap(instance);
@@ -352,7 +363,16 @@ export const ExploreView = (props: {
           </Errored>
         </section>
       </aside>
-      <div class="map" ref={setContainer} />
+      <div class="map-area">
+        <div class="map" ref={setContainer} />
+        <Show when={arrived()}>
+          {(name) => (
+            <p class="arrived" role="status">
+              Now in {name()}
+            </p>
+          )}
+        </Show>
+      </div>
     </div>
   );
 };
