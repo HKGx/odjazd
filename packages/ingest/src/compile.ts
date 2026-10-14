@@ -13,6 +13,7 @@ import {
 } from "./csv.ts";
 import { GtfsValidationError, Warnings, type IngestWarning } from "./errors.ts";
 import { modeFromRouteType } from "./route-type.ts";
+import { compileShapes } from "./shapes.ts";
 
 export interface IngestResult {
   readonly timetable: Timetable;
@@ -169,8 +170,10 @@ const compileTrips = (
   const serviceId = table.column("service_id");
   const headsign = table.column("trip_headsign");
   const direction = table.column("direction_id");
+  const shapeId = table.column("shape_id");
 
   const feedIds: Array<string> = [];
+  const shapeIds: Array<string> = [];
   const line: Array<number> = [];
   const service: Array<number> = [];
   const directions: Array<number> = [];
@@ -199,8 +202,9 @@ const compileTrips = (
     service.push(serviceOf);
     directions.push(dir === "0" ? 0 : dir === "1" ? 1 : -1);
     headsigns.push(cell(row, headsign));
+    shapeIds.push(cell(row, shapeId));
   }
-  return { feedIds, line, service, directions, headsigns, index };
+  return { feedIds, line, service, directions, headsigns, shapeIds, index };
 };
 
 const pickupFlags = (value: string, none: number): number =>
@@ -429,6 +433,7 @@ export const compileGtfs = Effect.fn("compileGtfs")(function* (
     "exception_type",
   ]);
   const feedInfoTable = yield* readOptionalTable(files, "feed_info.txt", []);
+  const shapesTable = yield* readOptionalTable(files, "shapes.txt", []);
   if (files.has("frequencies.txt")) {
     warnings.add(
       "frequencies.txt",
@@ -463,6 +468,7 @@ export const compileGtfs = Effect.fn("compileGtfs")(function* (
   const pick = <A>(values: ReadonlyArray<A>, fallback: A) =>
     keptTrips.map((t) => values[t] ?? fallback);
   const feedVersion = feedInfoTable?.rows[0]?.[feedInfoTable.column("feed_version")];
+  const shapes = compileShapes(shapesTable, pick(trips.shapeIds, ""), warnings);
 
   const timetable: Timetable = {
     cityId: entry.id,
@@ -487,6 +493,7 @@ export const compileGtfs = Effect.fn("compileGtfs")(function* (
       feedIds: pick(trips.feedIds, ""),
     },
     stopTimes,
+    shapes,
   };
 
   const result: IngestResult = { timetable, warnings: warnings.toArray() };
@@ -498,7 +505,8 @@ export const compileGtfs = Effect.fn("compileGtfs")(function* (
   yield* Effect.logInfo(
     `compiled ${entry.id}/${feed.id}: ${lines.length} lines, ${stops.count} stops, ` +
       `${timetable.trips.count} trips, ${stopTimes.count} stop times, ` +
-      `${services.days.count} days from ${services.days.first}`,
+      `${services.days.count} days from ${services.days.first}, ` +
+      `${shapes?.count ?? 0} shapes (${shapes?.lat.length ?? 0} points)`,
   );
   return result;
 });

@@ -9,6 +9,7 @@ import type { Vehicle } from "@odjazd/api";
 import type { EpochSeconds, LineId } from "@odjazd/model";
 import { liveRealization, type LiveDelay, type Realization } from "@odjazd/prediction";
 import { instantOn, runsOn, type Timetable } from "@odjazd/timetable";
+import { ridePath } from "./shape-path.ts";
 import type {
   LineLabel,
   LineRouteDto,
@@ -249,6 +250,7 @@ export const makeExplorer = (
             headsign: pattern.headsign,
             trips: pattern.trips,
             stops: Array.from(stopTimes.stop.subarray(first, end), routeStop),
+            path: ridePath(timetable, pattern.trip, first, end - 1),
           };
         }),
     };

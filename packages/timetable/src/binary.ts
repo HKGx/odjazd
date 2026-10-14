@@ -1,7 +1,7 @@
 import type { Timetable } from "./timetable.ts";
 
 /*
- * Binary timetable file, version 1:
+ * Binary timetable file, version 2 (version 1 is the same without shapes):
  *
  *   0  "ODJT"            magic
  *   4  u32               format version
@@ -16,7 +16,9 @@ import type { Timetable } from "./timetable.ts";
  */
 
 const MAGIC = 0x544a444f; // "ODJT" read as little-endian u32
-export const TIMETABLE_FORMAT_VERSION = 1;
+export const TIMETABLE_FORMAT_VERSION = 2;
+/** Older files still read, e.g. the device's offline copy from before an update. */
+const READABLE_VERSIONS: ReadonlyArray<number> = [1, 2];
 
 type ArrayKind = "f64" | "u32" | "i32" | "u8" | "i8";
 
@@ -35,7 +37,15 @@ const sections = [
   ["stopTimes.flags", "u8"],
 ] as const satisfies ReadonlyArray<readonly [string, ArrayKind]>;
 
-type SectionName = (typeof sections)[number][0];
+/** Written only when the timetable has shapes. */
+const shapeSections = [
+  ["shapes.firstPoint", "u32"],
+  ["shapes.lat", "i32"],
+  ["shapes.lon", "i32"],
+  ["shapes.ofTrip", "i32"],
+] as const satisfies ReadonlyArray<readonly [string, ArrayKind]>;
+
+type SectionName = (typeof sections)[number][0] | (typeof shapeSections)[number][0];
 
 interface Header {
   readonly cityId: Timetable["cityId"];
@@ -56,8 +66,9 @@ interface Header {
     readonly feedIds: ReadonlyArray<string>;
   };
   readonly stopTimes: { readonly count: number };
+  readonly shapes?: { readonly count: number };
   /** Byte offset and element count of each section, by name. */
-  readonly sections: Record<SectionName, readonly [offset: number, length: number]>;
+  readonly sections: Partial<Record<SectionName, readonly [offset: number, length: number]>>;
 }
 
 export class TimetableFormatError extends Error {
@@ -66,7 +77,9 @@ export class TimetableFormatError extends Error {
 
 const bytesPer: Record<ArrayKind, number> = { f64: 8, u32: 4, i32: 4, u8: 1, i8: 1 };
 
-const columnsOf = (t: Timetable): Record<SectionName, ArrayBufferView & { length: number }> => ({
+type Column = ArrayBufferView & { length: number };
+
+const columnsOf = (t: Timetable): Partial<Record<SectionName, Column>> => ({
   "days.anchors": t.days.anchors,
   "stops.lat": t.stops.lat,
   "stops.lon": t.stops.lon,
@@ -79,6 +92,14 @@ const columnsOf = (t: Timetable): Record<SectionName, ArrayBufferView & { length
   "stopTimes.arrival": t.stopTimes.arrival,
   "stopTimes.departure": t.stopTimes.departure,
   "stopTimes.flags": t.stopTimes.flags,
+  ...(t.shapes === undefined
+    ? {}
+    : {
+        "shapes.firstPoint": t.shapes.firstPoint,
+        "shapes.lat": t.shapes.lat,
+        "shapes.lon": t.shapes.lon,
+        "shapes.ofTrip": t.shapes.ofTrip,
+      }),
 });
 
 const align8 = (n: number) => (n + 7) & ~7;
@@ -88,21 +109,27 @@ const littleEndian = new Uint8Array(Uint16Array.of(1).buffer)[0] === 1;
 export const encodeTimetable = (timetable: Timetable): Uint8Array<ArrayBuffer> => {
   if (!littleEndian) throw new TimetableFormatError("big-endian hosts are not supported");
   const columns = columnsOf(timetable);
+  const present: ReadonlyArray<readonly [SectionName, ArrayKind, Column]> = [
+    ...sections,
+    ...shapeSections,
+  ].flatMap(([name, kind]) => {
+    const column = columns[name];
+    return column === undefined ? [] : [[name, kind, column] as const];
+  });
 
   // Header size depends on section offsets, which depend on header size: lay
   // out sections relative to 0, then shift once the header length is known.
-  const relative = {} as Record<SectionName, readonly [number, number]>;
+  const relative = new Map<SectionName, readonly [number, number]>();
   let cursor = 0;
-  for (const [name, kind] of sections) {
-    const length = columns[name].length;
-    relative[name] = [cursor, length];
-    cursor = align8(cursor + length * bytesPer[kind]);
+  for (const [name, kind, column] of present) {
+    relative.set(name, [cursor, column.length]);
+    cursor = align8(cursor + column.length * bytesPer[kind]);
   }
   const bodyLength = cursor;
 
   const shifted = (base: number) => {
-    const table = {} as Record<SectionName, readonly [number, number]>;
-    for (const [name] of sections) table[name] = [base + relative[name][0], relative[name][1]];
+    const table: Partial<Record<SectionName, readonly [number, number]>> = {};
+    for (const [name, [offset, length]] of relative) table[name] = [base + offset, length];
     return table;
   };
 
@@ -128,6 +155,7 @@ export const encodeTimetable = (timetable: Timetable): Uint8Array<ArrayBuffer> =
       feedIds: timetable.trips.feedIds,
     },
     stopTimes: { count: timetable.stopTimes.count },
+    ...(timetable.shapes === undefined ? {} : { shapes: { count: timetable.shapes.count } }),
     sections: shifted(base),
   });
 
@@ -148,11 +176,10 @@ export const encodeTimetable = (timetable: Timetable): Uint8Array<ArrayBuffer> =
   view.setUint32(4, TIMETABLE_FORMAT_VERSION, true);
   view.setUint32(8, headerBytes.length, true);
   out.set(headerBytes, 12);
-  for (const [name] of sections) {
-    const column = columns[name];
+  for (const [name, , column] of present) {
     out.set(
       new Uint8Array(column.buffer, column.byteOffset, column.byteLength),
-      base + relative[name][0],
+      base + (relative.get(name)?.[0] ?? 0),
     );
   }
   return out;
@@ -169,7 +196,7 @@ export const decodeTimetable = (bytes: Uint8Array): Timetable => {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   if (view.getUint32(0, true) !== MAGIC) throw new TimetableFormatError("not a timetable file");
   const version = view.getUint32(4, true);
-  if (version !== TIMETABLE_FORMAT_VERSION) {
+  if (!READABLE_VERSIONS.includes(version)) {
     throw new TimetableFormatError(`unsupported format version ${version}`);
   }
   const headerLength = view.getUint32(8, true);
@@ -230,5 +257,16 @@ export const decodeTimetable = (bytes: Uint8Array): Timetable => {
       departure: section("stopTimes.departure", "i32") as Int32Array,
       flags: section("stopTimes.flags", "u8") as Uint8Array,
     },
+    ...(header.shapes === undefined
+      ? {}
+      : {
+          shapes: {
+            count: header.shapes.count,
+            firstPoint: section("shapes.firstPoint", "u32") as Uint32Array,
+            lat: section("shapes.lat", "i32") as Int32Array,
+            lon: section("shapes.lon", "i32") as Int32Array,
+            ofTrip: section("shapes.ofTrip", "i32") as Int32Array,
+          },
+        }),
   };
 };

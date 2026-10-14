@@ -26,6 +26,7 @@ import {
 } from "@odjazd/model";
 import { type Realization, straightLineWalking } from "@odjazd/prediction";
 import { instantOn, type Timetable } from "@odjazd/timetable";
+import { ridePath } from "./shape-path.ts";
 import type {
   JourneyDto,
   LineLabel,
@@ -110,8 +111,7 @@ export const makePlanner = (
     const line = trips.line[leg.trip] ?? 0;
     const boardStop = stopTimes.stop[leg.board] ?? 0;
     const delay = context.delayAt(leg.trip, leg.day, leg.board);
-    const path: Array<LatLon> = [];
-    for (let st = leg.board; st <= leg.alight; st++) path.push(point(stopTimes.stop[st] ?? 0));
+    const path = ridePath(timetable, leg.trip, leg.board, leg.alight);
     const id = lines[line]?.id ?? ("?" as LineId);
     return {
       _tag: "Ride",

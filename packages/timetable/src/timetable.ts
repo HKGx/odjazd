@@ -29,6 +29,8 @@ export interface Timetable {
   readonly services: Services;
   readonly trips: Trips;
   readonly stopTimes: StopTimes;
+  /** Road and track geometry of trips (`shapes.txt`); absent when the feed has none. */
+  readonly shapes?: Shapes | undefined;
 }
 
 export interface ServiceDays {
@@ -98,6 +100,17 @@ export interface StopTimes {
   readonly arrival: Int32Array;
   readonly departure: Int32Array;
   readonly flags: Uint8Array;
+}
+
+export interface Shapes {
+  readonly count: number;
+  /** Shape s's points are `[firstPoint[s], firstPoint[s + 1])`. Length `count + 1`. */
+  readonly firstPoint: Uint32Array;
+  /** Microdegrees (about 0.1 m). */
+  readonly lat: Int32Array;
+  readonly lon: Int32Array;
+  /** Shape of each trip, or -1. Length `trips.count`. */
+  readonly ofTrip: Int32Array;
 }
 
 /** Whether `service` runs on service day `day` (index into `days`). */

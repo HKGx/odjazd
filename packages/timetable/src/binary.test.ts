@@ -59,6 +59,27 @@ describe("binary timetable", () => {
     expect(decodeTimetable(shifted.subarray(1))).toEqual(sample);
   });
 
+  it("round-trips shapes when the timetable has them", () => {
+    const withShapes: Timetable = {
+      ...sample,
+      shapes: {
+        count: 1,
+        firstPoint: Uint32Array.of(0, 3),
+        lat: Int32Array.of(51_770_000, 51_775_000, 51_780_000),
+        lon: Int32Array.of(19_450_000, 19_452_000, 19_460_000),
+        ofTrip: Int32Array.from({ length: sample.trips.count }, (_, i) => (i === 0 ? 0 : -1)),
+      },
+    };
+    expect(decodeTimetable(encodeTimetable(withShapes))).toEqual(withShapes);
+    expect(decodeTimetable(encodeTimetable(sample)).shapes).toBeUndefined();
+  });
+
+  it("still reads version 1 files (no shapes)", () => {
+    const old = encodeTimetable(sample).slice();
+    new DataView(old.buffer).setUint32(4, 1, true);
+    expect(decodeTimetable(old)).toEqual(sample);
+  });
+
   it("rejects foreign, truncated and future-version files", () => {
     const bytes = encodeTimetable(sample);
     expect(() => decodeTimetable(new TextEncoder().encode("PK\u0003\u0004 not ours"))).toThrow(

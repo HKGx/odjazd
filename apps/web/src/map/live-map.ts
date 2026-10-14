@@ -759,16 +759,18 @@ export class LiveMap {
     if (!this.ready) return;
     const line = this.map.getSource<GeoJSONSource>("route");
     const points = this.map.getSource<GeoJSONSource>("route-stops");
-    const stops = this.route?.directions[this.direction]?.stops ?? [];
+    const direction = this.route?.directions[this.direction];
+    const stops = direction?.stops ?? [];
+    const path = direction?.path ?? [];
     line?.setData({
       type: "FeatureCollection",
       features:
-        stops.length < 2
+        path.length < 2
           ? []
           : [
               {
                 type: "Feature",
-                geometry: { type: "LineString", coordinates: stops.map((s) => [s.lon, s.lat]) },
+                geometry: { type: "LineString", coordinates: path.map((p) => [p.lon, p.lat]) },
                 properties: {},
               },
             ],

@@ -231,7 +231,13 @@ const RouteStop = Schema.Struct({
 export const LineRouteDto = Schema.Struct({
   line: LineLabel,
   directions: Schema.Array(
-    Schema.Struct({ headsign: Schema.String, trips: Schema.Int, stops: Schema.Array(RouteStop) }),
+    Schema.Struct({
+      headsign: Schema.String,
+      trips: Schema.Int,
+      stops: Schema.Array(RouteStop),
+      /** Along the streets or tracks when the feed has shapes, else stop to stop. */
+      path: Schema.Array(Schema.Struct({ lat: Schema.Finite, lon: Schema.Finite })),
+    }),
   ),
 });
 export type LineRouteDto = typeof LineRouteDto.Type;
