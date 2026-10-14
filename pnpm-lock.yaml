@@ -221,6 +221,9 @@ importers:
       '@odjazd/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      rolldown:
+        specifier: 1.2.13
+        version: 1.2.13
 
   apps/web:
     dependencies:

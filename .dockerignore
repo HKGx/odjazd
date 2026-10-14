@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+.git
+.jj
+.vscode
+.env*
+data
+apps/server/data
+plans
+Dockerfile
+.dockerignore
+.forgejo

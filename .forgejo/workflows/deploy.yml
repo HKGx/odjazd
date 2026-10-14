@@ -1,0 +1,69 @@
+name: Build, push and deploy
+
+# Typecheck, lint and tests run inside the image build (the Dockerfile's `check`
+# stage), so a commit that fails them never produces an image to deploy.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    # Must match a label of your forgejo-runner. Its job containers need Docker
+    # access (e.g. `container.docker_host: automount` in the runner config) for buildx.
+    runs-on: docker
+
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      - name: Registry host
+        # The instance's own container registry, e.g. git.example.com
+        run: echo "REGISTRY=${GITHUB_SERVER_URL#*://}" >> "$GITHUB_ENV"
+
+      # Only needed when the runner isn't arm64 itself; harmless when it is.
+      - uses: https://github.com/docker/setup-qemu-action@v3
+
+      - uses: https://github.com/docker/setup-buildx-action@v3
+
+      - name: Image tags
+        id: meta
+        uses: https://github.com/docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=sha,format=long
+            latest
+
+      - name: Log in to the registry
+        uses: https://github.com/docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USER }}
+          # An access token with package write permission.
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Build and push
+        uses: https://github.com/docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/arm64
+          # Layer cache in the registry; image-manifest keeps it acceptable to
+          # registries that reject buildx's default cache index.
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+
+  deploy:
+    runs-on: docker
+    needs: build-and-push
+
+    steps:
+      - name: Trigger the Coolify deployment
+        run: |
+          curl --fail --silent --show-error --request POST '${{ secrets.COOLIFY_WEBHOOK }}' \
+            --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}'
