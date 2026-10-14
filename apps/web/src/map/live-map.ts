@@ -106,23 +106,33 @@ const empty: FeatureCollection = { type: "FeatureCollection", features: [] };
 const cssVar = (name: string) =>
   getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#2a78d6";
 
-/** A 40×40 arrowhead pointing up, drawn once; rotated per vehicle bearing. */
-const arrowImage = (color: string) => {
-  const size = 40;
+/**
+ * Vehicle circles are 10 px in radius with a 1.5 px outline at zoom 14; the
+ * heading arrow sits just outside that edge so the circle doesn't cover it.
+ */
+const vehicleEdge = 11.5;
+
+/**
+ * An arrowhead pointing up, just beyond a vehicle's edge, at 2× for crisp
+ * edges; rotated per vehicle bearing and scaled with the circle. A signed
+ * distance field, so each vehicle can tint it.
+ */
+const arrowImage = () => {
+  const half = 20;
+  const ratio = 2;
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = canvas.height = half * 2 * ratio;
   const ctx = canvas.getContext("2d");
-  if (ctx !== null) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(size / 2, 1);
-    ctx.lineTo(size / 2 + 7, 10);
-    ctx.lineTo(size / 2 - 7, 10);
-    ctx.closePath();
-    ctx.fill();
-  }
-  return ctx?.getImageData(0, 0, size, size);
+  if (ctx === null) return undefined;
+  const c = half * ratio;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(c, c - (vehicleEdge + 7.5) * ratio);
+  ctx.lineTo(c + 5 * ratio, c - (vehicleEdge + 1) * ratio);
+  ctx.lineTo(c - 5 * ratio, c - (vehicleEdge + 1) * ratio);
+  ctx.closePath();
+  ctx.fill();
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 };
 
 export class LiveMap {
@@ -225,9 +235,10 @@ export class LiveMap {
     const text = cssVar("--text-primary");
     const font = ["Noto Sans Bold"];
 
-    const arrow = arrowImage(this.dark ? "#f0efec" : "#0b0b0b");
-    if (arrow !== undefined && !map.hasImage("arrow"))
-      map.addImage("arrow", arrow, { pixelRatio: 2 });
+    const arrow = arrowImage();
+    if (arrow !== undefined && !map.hasImage("vehicle-heading")) {
+      map.addImage("vehicle-heading", arrow, { pixelRatio: 2, sdf: true });
+    }
 
     map.addSource("user-areas", { type: "geojson", data: empty });
     map.addSource("user-places", { type: "geojson", data: empty });
@@ -415,13 +426,26 @@ export class LiveMap {
       source: "vehicles",
       filter: [">=", ["get", "bearing"], 0],
       layout: {
-        "icon-image": "arrow",
+        "icon-image": "vehicle-heading",
         "icon-rotate": ["get", "bearing"],
+        // Follows the circle's radius (and outline) below, relative to zoom 14's edge.
+        "icon-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          11,
+          ["case", ["get", "selected"], 13 / vehicleEdge, 7.5 / vehicleEdge],
+          14,
+          ["case", ["get", "selected"], 16 / vehicleEdge, 1],
+        ],
         "icon-rotation-alignment": "map",
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
       },
-      paint: { "icon-opacity": ["case", ["get", "dim"], 0.2, 0.9] },
+      paint: {
+        "icon-color": ["case", ["==", ["get", "mode"], "tram"], tram, bus],
+        "icon-opacity": ["case", ["get", "dim"], 0.2, 1],
+      },
     });
     map.addLayer({
       id: "vehicles",
