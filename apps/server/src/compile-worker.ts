@@ -1,98 +1,71 @@
+// Worker program: serves CompileRpcs over the thread's parent port.
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { inspect } from "node:util";
-import { parentPort, workerData } from "node:worker_threads";
 import { gzipSync } from "node:zlib";
-import type { CatalogEntry, StaticFeed } from "@odjazd/cities";
+import { NodeRuntime, NodeWorkerRunner } from "@effect/platform-node";
 import { ingestGtfsZip, walkGraphFromPbf } from "@odjazd/ingest";
-import type { BoundingBox } from "@odjazd/model";
 import { encodeTimetable } from "@odjazd/timetable";
 import { computeFootpaths, decodeWalkGraph, encodeWalkGraph, makeWalkNetwork } from "@odjazd/walk";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
+import { RpcServer } from "effect/rpc";
+import { CompileFailed, CompileRpcs } from "./compile-rpc.ts";
 
-/*
- * The heavy half of publishing, on a worker thread so the server keeps
- * answering (manifests, downloads, live vehicles) while a city compiles. One
- * job per thread: the thread's memory goes back when it exits.
- */
+const failed = (error: unknown) => CompileFailed.make({ message: inspect(error, { depth: 6 }) });
 
-export type CompileJob =
-  | {
-      readonly kind: "timetable";
-      readonly zip: Uint8Array;
-      readonly entry: CatalogEntry;
-      readonly feed: StaticFeed;
-      /** Encoded walk graph to measure footpaths on. */
-      readonly streets: Uint8Array | undefined;
-    }
-  | {
-      readonly kind: "streets";
-      /** An `.osm.pbf` extract on disk. */
-      readonly file: string;
-      readonly entry: CatalogEntry;
-      readonly bbox: BoundingBox;
-    };
-
-/** A file ready to publish, with what the log line and manifest need. */
-export interface CompiledFile {
-  readonly bytes: Uint8Array;
-  readonly compressed: Uint8Array;
-  readonly hash: string;
-  readonly summary: Readonly<Record<string, string | number | undefined>>;
-}
-
-const finish = (bytes: Uint8Array, summary: CompiledFile["summary"]): CompiledFile => ({
+const finish = (bytes: Uint8Array<ArrayBuffer>) => ({
   bytes,
   // A copy: small gzip outputs can sit in Node's shared buffer pool, which can't be transferred.
   compressed: new Uint8Array(gzipSync(bytes, { level: 9 })),
   hash: createHash("sha256").update(bytes).digest("hex"),
-  summary,
 });
 
-const run = async (job: CompileJob): Promise<CompiledFile> => {
-  if (job.kind === "streets") {
-    const graph = await walkGraphFromPbf(
-      createReadStream(job.file, { highWaterMark: 1 << 20 }),
-      job.entry.id,
-      job.bbox,
-    );
-    return finish(encodeWalkGraph(graph), {
-      nodes: graph.nodes.count,
-      edges: graph.edges.count,
-      osmTimestamp: graph.osmTimestamp,
-    });
-  }
-  const { timetable: ingested } = await Effect.runPromise(
-    ingestGtfsZip(job.zip, job.entry, job.feed),
-  );
-  const timetable =
-    job.streets === undefined
-      ? ingested
-      : {
-          ...ingested,
-          footpaths: computeFootpaths(
-            makeWalkNetwork(decodeWalkGraph(job.streets)),
-            ingested.stops,
-          ),
-        };
-  return finish(encodeTimetable(timetable), {
-    feedVersion: timetable.feedVersion,
-    footpaths: timetable.footpaths?.to.length,
-  });
-};
+const handlers = CompileRpcs.toLayer({
+  Timetable: ({ zip, entry, feed, streets }) =>
+    ingestGtfsZip(zip, entry, feed).pipe(
+      Effect.mapError(failed),
+      Effect.flatMap(({ timetable: ingested }) =>
+        Effect.try({
+          try: () => {
+            const timetable =
+              streets === undefined
+                ? ingested
+                : {
+                    ...ingested,
+                    footpaths: computeFootpaths(
+                      makeWalkNetwork(decodeWalkGraph(streets)),
+                      ingested.stops,
+                    ),
+                  };
+            const footpaths = timetable.footpaths?.to.length;
+            return {
+              ...finish(encodeTimetable(timetable)),
+              ...(footpaths === undefined ? {} : { footpaths }),
+            };
+          },
+          catch: failed,
+        }),
+      ),
+    ),
+  Streets: ({ file, entry, bbox }) =>
+    Effect.tryPromise({
+      try: () =>
+        walkGraphFromPbf(createReadStream(file, { highWaterMark: 1 << 20 }), entry.id, bbox),
+      catch: failed,
+    }).pipe(
+      Effect.map((graph) => ({
+        ...finish(encodeWalkGraph(graph)),
+        nodes: graph.nodes.count,
+        edges: graph.edges.count,
+        ...(graph.osmTimestamp === undefined ? {} : { osmTimestamp: graph.osmTimestamp }),
+      })),
+    ),
+});
 
-if (parentPort !== null) {
-  const port = parentPort;
-  run(workerData as CompileJob).then(
-    (result) =>
-      port.postMessage({ ok: true, result }, [
-        result.bytes.buffer,
-        result.compressed.buffer,
-      ] as never),
-    (error: unknown) =>
-      port.postMessage({
-        ok: false,
-        error: inspect(error, { depth: 6 }),
-      }),
-  );
-}
+const Main = RpcServer.layer(CompileRpcs).pipe(
+  Layer.provide(handlers),
+  Layer.provide(RpcServer.layerProtocolWorkerRunner),
+  Layer.provide(NodeWorkerRunner.layer),
+);
+
+NodeRuntime.runMain(Layer.launch(Main));

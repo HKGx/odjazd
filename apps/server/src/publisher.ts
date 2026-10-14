@@ -20,7 +20,7 @@ import {
   Stream,
 } from "effect";
 import { HttpClient } from "effect/http";
-import type { CompiledFile } from "./compile-worker.ts";
+import type { CompiledFile } from "./compile-rpc.ts";
 import { dataDir, gtfsOverride, streetsOverride } from "./config.ts";
 import { offThread } from "./off-thread.ts";
 
@@ -237,19 +237,20 @@ export class Publisher extends Context.Service<
               return next;
             }
             const { bbox } = entry;
-            const compiled = yield* offThread({
-              kind: "streets",
-              file: extract.file,
-              entry,
-              bbox: {
-                south: bbox.south - marginDegrees,
-                west: bbox.west - marginDegrees,
-                north: bbox.north + marginDegrees,
-                east: bbox.east + marginDegrees,
-              },
-            }).pipe(Effect.ensuring(cleanup));
+            const compiled = yield* offThread((thread) =>
+              thread.Streets({
+                file: extract.file,
+                entry,
+                bbox: {
+                  south: bbox.south - marginDegrees,
+                  west: bbox.west - marginDegrees,
+                  north: bbox.north + marginDegrees,
+                  east: bbox.east + marginDegrees,
+                },
+              }),
+            ).pipe(Effect.ensuring(cleanup));
             const published = yield* publish(compiled, "walk");
-            const { osmTimestamp, nodes, edges } = compiled.summary;
+            const { osmTimestamp, nodes, edges } = compiled;
             const file: StreetsFile = {
               ...published,
               path: `/api/feeds/${published.hash}.walk`,
@@ -319,13 +320,14 @@ export class Publisher extends Context.Service<
           }
 
           const started = yield* Clock.currentTimeMillis;
-          const compiled = yield* offThread({
-            kind: "timetable",
-            zip,
-            entry,
-            feed,
-            streets: network?.graph,
-          });
+          const compiled = yield* offThread((thread) =>
+            thread.Timetable({
+              zip,
+              entry,
+              feed,
+              ...(network === undefined ? {} : { streets: network.graph }),
+            }),
+          );
           const timetable = decodeTimetable(compiled.bytes);
           const published = yield* publish(compiled, "bin");
 

@@ -1,6 +1,8 @@
 import { Worker } from "node:worker_threads";
-import { Effect, Schema } from "effect";
-import type { CompiledFile, CompileJob } from "./compile-worker.ts";
+import { NodeWorker } from "@effect/platform-node";
+import { Effect, Layer } from "effect";
+import { RpcClient, type RpcClientError } from "effect/rpc";
+import { CompileFailed, CompileRpcs } from "./compile-rpc.ts";
 
 // Next to this file: the TypeScript source in development, the bundled `.mjs` in the image.
 const workerUrl = new URL(
@@ -8,41 +10,32 @@ const workerUrl = new URL(
   import.meta.url,
 );
 
-export class CompileFailed extends Schema.TaggedError<CompileFailed>()("CompileFailed", {
-  message: Schema.String,
-}) {}
+// Without this variable: under `node --watch`, a thread that has it posts the files it loads
+// to its parent port, where the worker protocol can't read them.
+const { WATCH_REPORT_DEPENDENCIES: _watch, ...env } = process.env;
 
-/** Runs one compile job on its own thread; interrupting stops the thread. */
-export const offThread = (job: CompileJob): Effect.Effect<CompiledFile, CompileFailed> =>
-  Effect.callback<CompiledFile, CompileFailed>((resume) => {
-    const worker = new Worker(workerUrl, { workerData: job });
-    let settled = false;
-    const settle = (effect: Effect.Effect<CompiledFile, CompileFailed>) => {
-      if (settled) return;
-      settled = true;
-      resume(effect);
-    };
-    // Only our reply counts: under `node --watch`, the runtime posts its own messages too.
-    worker.on("message", (message: unknown) => {
-      if (typeof message !== "object" || message === null || !("ok" in message)) return;
-      const reply = message as { ok: true; result: CompiledFile } | { ok: false; error: string };
-      settle(
-        reply.ok
-          ? Effect.succeed(reply.result)
-          : Effect.fail(CompileFailed.make({ message: String(reply.error) })),
-      );
-    });
-    worker.once("error", (error: Error) =>
-      settle(Effect.fail(CompileFailed.make({ message: String(error.stack ?? error.message) }))),
-    );
-    worker.once("exit", (code) =>
-      settle(
-        Effect.fail(
-          CompileFailed.make({
-            message: `compile thread exited with code ${code} before answering`,
-          }),
-        ),
-      ),
-    );
-    return Effect.promise(() => worker.terminate());
-  });
+const thread = RpcClient.layerProtocolWorker({ size: 1 }).pipe(
+  Layer.provide(NodeWorker.layer(() => new Worker(workerUrl, { env }))),
+);
+
+type CompileClient = RpcClient.FromGroup<typeof CompileRpcs, RpcClientError.RpcClientError>;
+
+/**
+ * Runs `use` against a compile thread of its own, closed afterwards so the memory a
+ * compile held goes back; interrupting stops the thread.
+ */
+export const offThread = <A>(
+  use: (client: CompileClient) => Effect.Effect<A, CompileFailed | RpcClientError.RpcClientError>,
+): Effect.Effect<A, CompileFailed> =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const context = yield* Layer.build(thread);
+      const client = yield* RpcClient.make(CompileRpcs).pipe(Effect.provideContext(context));
+      return yield* use(client);
+    }),
+  ).pipe(
+    Effect.catchTags({
+      WorkerError: (error) => Effect.fail(CompileFailed.make({ message: String(error) })),
+      RpcClientError: (error) => Effect.fail(CompileFailed.make({ message: String(error) })),
+    }),
+  );
