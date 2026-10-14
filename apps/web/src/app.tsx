@@ -129,15 +129,7 @@ const Failure = (props: { error: unknown; reset: () => void }) => (
 
 /** No download size means nothing is published yet: a new server is still compiling it. */
 const LoadingText = (props: { city: CitySummary }) => (
-  <Show
-    when={props.city.downloadBytes}
-    fallback={
-      <>
-        The server is preparing the {props.city.name["en"]} timetable for the first time. It opens
-        here by itself when ready, usually within a minute or two…
-      </>
-    }
-  >
+  <Show when={props.city.downloadBytes} fallback={<>Preparing {props.city.name["en"]}…</>}>
     {(bytes) => (
       <>
         Loading the {props.city.name["en"]} timetable ({megabytes(bytes())})…

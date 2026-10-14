@@ -95,8 +95,7 @@ const HopEditor = (props: {
           when={chips().length > 0}
           fallback={
             <p class="form-error small">
-              Nothing runs directly from {props.from.name} to {props.to.name}. Add an area in
-              between, or make one of them bigger.
+              Nothing runs directly from {props.from.name} to {props.to.name}.
             </p>
           }
         >
@@ -426,10 +425,6 @@ export const RouteEditorPanel = (props: {
           onInput={(e) => update({ ...draft(), name: e.currentTarget.value })}
         />
       </label>
-      <p class="muted small">
-        Tap stops on the map in the order you travel, or long-press anywhere. Each becomes an
-        interchange area: any stop inside it will do.
-      </p>
 
       <ol class="draft-areas">
         <For each={draft().areas}>

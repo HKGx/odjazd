@@ -7,10 +7,6 @@ import { updatePreferences } from "../user.ts";
 export const ChooseCity = (props: { cities: ReadonlyArray<CitySummary> }) => (
   <section class="choose-city">
     <h1>Which city?</h1>
-    <p class="muted">
-      Each city has its own stops, lines and saved places. You can switch any time from the top bar,
-      or by zooming into another city on the map.
-    </p>
     <ul>
       <For each={props.cities}>
         {(city) => (

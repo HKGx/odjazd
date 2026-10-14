@@ -39,10 +39,7 @@ export const AboutView = (props: { city: CitySummary; loaded: LoadResult }) => {
           <dt>Source</dt>
           <dd>{props.loaded.source === "cache" ? "offline copy" : "network"}</dd>
           <dt>Walking</dt>
-          <Show
-            when={manifest().streets}
-            fallback={<dd>Estimated: straight line × 1.3 (no street network for this city)</dd>}
-          >
+          <Show when={manifest().streets} fallback={<dd>Estimated</dd>}>
             {(streets) => (
               <dd>
                 Along the streets (OpenStreetMap
@@ -73,10 +70,6 @@ export const AboutView = (props: { city: CitySummary; loaded: LoadResult }) => {
             )}
           </For>
         </ul>
-        <p class="muted">
-          Travel times and walks are computed on this device from the published schedule and street
-          map. Your areas, corridors and location never leave it.
-        </p>
       </div>
     </section>
   );

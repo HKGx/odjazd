@@ -136,10 +136,6 @@ export const PlacesView = (props: { city: CitySummary }) => {
         <div class="card-head">
           <h2>Places</h2>
         </div>
-        <p class="subtitle">
-          Your own points, like home or work. They never leave this device unless you export them.
-          Add one by long-pressing (or right-clicking) the map.
-        </p>
         <ul class="records">
           <For
             each={records().places}
@@ -153,10 +149,6 @@ export const PlacesView = (props: { city: CitySummary }) => {
 
       <div class="card">
         <h2>Interchange areas</h2>
-        <p class="subtitle">
-          Groups of nearby stops where you change. Create one from a stop's panel on the map, or by
-          long-pressing the map.
-        </p>
         <ul class="records">
           <For
             each={records().areas}
@@ -175,10 +167,6 @@ export const PlacesView = (props: { city: CitySummary }) => {
             New route
           </a>
         </div>
-        <p class="subtitle">
-          Chains of interchange areas you travel through, with the lines you'd take between them.
-          Trip planning suggests a route whenever it fits, and Compare times them side by side.
-        </p>
         <ul class="records">
           <For
             each={records().corridors}
@@ -219,10 +207,6 @@ export const PlacesView = (props: { city: CitySummary }) => {
 
       <div class="card">
         <h2>Backup</h2>
-        <p class="subtitle">
-          Everything above plus your settings, as one JSON file. Importing merges: for each record,
-          the newer version wins.
-        </p>
         <div class="actions">
           <button type="button" onClick={exportData}>
             Export

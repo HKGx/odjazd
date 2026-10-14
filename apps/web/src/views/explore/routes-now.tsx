@@ -44,8 +44,7 @@ export const RoutesNow = (props: {
       when={records().corridors.length > 0}
       fallback={
         <p class="muted small">
-          No routes here yet. <a href={href({ page: "route", id: undefined })}>Make one</a> to see
-          its next departures on this screen.
+          No routes yet. <a href={href({ page: "route", id: undefined })}>New route</a>
         </p>
       }
     >

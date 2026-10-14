@@ -2,7 +2,6 @@ import type { CityId } from "@odjazd/model";
 import {
   type JourneyDto,
   type LiveDto,
-  type PlanEndpoint,
   type PlanLegDto,
   type StopsDto,
   TimetableClient,
@@ -23,15 +22,15 @@ import {
 } from "solid-js";
 import { createEffectMemo } from "../../effect-solid.ts";
 import { clock, fromClock, nowClock } from "../../format.ts";
-import { here, locate } from "../../here.ts";
+import { locate } from "../../here.ts";
 import type { LiveMap } from "../../map/live-map.ts";
 import { now } from "../../now.ts";
-import { href, navigate, type Place } from "../../route.ts";
-import { kindIcon, preferences, useCity } from "../../user.ts";
+import { href, type Place } from "../../route.ts";
+import { preferences, useCity } from "../../user.ts";
 import { fromJourney } from "../../route-draft.ts";
 import { longPress } from "../../press.ts";
 import { editDraft } from "./handoff.ts";
-import { nearestStop, type Resolved, resolver } from "./endpoints.ts";
+import { resolver } from "./endpoints.ts";
 import { LineBadge, LiveTag } from "./parts.tsx";
 
 type Ride = Extract<PlanLegDto, { _tag: "Ride" }>;
@@ -446,13 +445,6 @@ export const TripPanel = (props: {
     () => setSelected(undefined),
   );
 
-  const go = (next: { from?: Place | undefined; to?: Place | undefined }) =>
-    navigate({
-      page: "trip",
-      from: "from" in next ? next.from : props.from,
-      to: "to" in next ? next.to : props.to,
-    });
-
   return (
     <article class="panel-body trip">
       <div class="actions when-row">
@@ -481,14 +473,7 @@ export const TripPanel = (props: {
         </Show>
       </div>
 
-      <Show
-        when={from()?.endpoint !== undefined && to()?.endpoint !== undefined}
-        fallback={
-          <p class="muted">
-            Choose where you're going above, or long-press the map to use any point.
-          </p>
-        }
-      >
+      <Show when={from()?.endpoint !== undefined && to()?.endpoint !== undefined}>
         <Loading fallback={<p class="loading">Finding connections…</p>}>
           <Show
             when={(planned()?.journeys.length ?? 0) > 0}

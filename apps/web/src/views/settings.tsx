@@ -41,10 +41,6 @@ export const SettingsView = () => (
 
     <div class="card">
       <h2>Routes</h2>
-      <p class="muted small">
-        Which lines to take is set per section of each route, in{" "}
-        <a href="#/places">Places → Routes</a>. These decide how much they count.
-      </p>
       <label class="stack">
         Suggest my route if it's at most {preferences().routeToleranceMin} min slower
         <input
@@ -55,10 +51,6 @@ export const SettingsView = () => (
           value={String(preferences().routeToleranceMin)}
           onChange={(e) => updatePreferences({ routeToleranceMin: Number(e.currentTarget.value) })}
         />
-        <span class="muted small">
-          When planning a trip, a saved route that fits is suggested over the fastest option unless
-          it arrives later than this.
-        </span>
       </label>
       <label class="stack">
         Preferred lines on a section: worth waiting {preferences().preferencePenaltyMin} min
@@ -72,10 +64,6 @@ export const SettingsView = () => (
             updatePreferences({ preferencePenaltyMin: Number(e.currentTarget.value) })
           }
         />
-        <span class="muted small">
-          On a section where you prefer some lines, another line is only taken if it leaves at least
-          this much sooner.
-        </span>
       </label>
     </div>
 

@@ -290,14 +290,6 @@ export const ExploreView = (props: {
                     timeZone={props.city.timezone}
                     map={map}
                   />
-                  <p>Tap a vehicle or a stop on the map for its details.</p>
-                  <p class="muted small">
-                    Long-press (or right-click) anywhere to plan a trip from or to there, or (More)
-                    to save a place or an interchange area.
-                  </p>
-                  <p class="muted small">
-                    Trams are blue, buses grey; arrows point the way they're heading.
-                  </p>
                 </div>
               }
             >

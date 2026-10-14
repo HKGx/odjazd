@@ -239,11 +239,6 @@ const Results = (props: {
               </button>
             </div>
           </div>
-          <p class="subtitle">
-            From the first area's center to the last one's, following the first suitable vehicle on
-            each leg. Schedule only, no delays yet. Click or press Enter on a departure to see the
-            trips.
-          </p>
           <Show
             when={props.showTable}
             fallback={
@@ -314,7 +309,7 @@ const Results = (props: {
         </div>
 
         <div class="card">
-          <h2>What each leg resolved to</h2>
+          <h2>Legs</h2>
           <For each={props.data.corridors}>
             {(corridor, c) => (
               <div class="resolved">
