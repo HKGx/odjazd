@@ -41,21 +41,17 @@ jobs:
       - name: Build and push
         run: |
           image="${FORGEJO_SERVER_URL#*://}/$(echo "$FORGEJO_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
-          # A builder that can export its layer cache to the registry.
-          docker buildx create --name odjazd --driver docker-container --use >/dev/null
+          # The host daemon's default builder: its layer cache stays on the host
+          # between runs, so nothing but the image itself is uploaded (Cloudflare
+          # in front of the registry rejects uploads over 100 MB).
           docker buildx build . \
+            --builder default \
             --platform linux/arm64 \
             --tag "$image:$FORGEJO_SHA" \
             --tag "$image:latest" \
             --label "org.opencontainers.image.source=$FORGEJO_SERVER_URL/$FORGEJO_REPOSITORY" \
             --label "org.opencontainers.image.revision=$FORGEJO_SHA" \
-            --cache-from "type=registry,ref=$image:buildcache" \
-            --cache-to "type=registry,ref=$image:buildcache,mode=max,image-manifest=true,oci-mediatypes=true" \
             --push
-
-      - name: Clean up the builder
-        if: always()
-        run: docker buildx rm odjazd || true
 
   deploy:
     runs-on: docker
