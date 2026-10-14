@@ -4,6 +4,7 @@ import { type SearchHitDto, type StopsDto, TimetableClient } from "@odjazd/worke
 import { Effect } from "effect";
 import {
   type Accessor,
+  createEffect,
   createMemo,
   createSignal,
   For,
@@ -15,7 +16,7 @@ import {
 import { createEffectMemo } from "../../effect-solid.ts";
 import { navigate, type Place, route } from "../../route.ts";
 import { kindIcon, useCity } from "../../user.ts";
-import { chooseStart, resolver, startOf } from "./endpoints.ts";
+import { type Draft, draftOf, resolver, setDraft } from "./endpoints.ts";
 import { LineBadge } from "./parts.tsx";
 
 /** A row: your location, one of your places, or a stop or line from the timetable. */
@@ -258,21 +259,29 @@ export const PlanBar = (props: {
     const r = route();
     return r.page === "trip" ? r : undefined;
   });
-  const fromPlace = createMemo(() => trip()?.from ?? startOf(props.city));
-  const toPlace = createMemo(() => trip()?.to);
+  // A trip on screen is the draft: opening one (from a link, the history) sets both ends.
+  createEffect(
+    () => [trip(), props.city] as const,
+    ([r, city]) => {
+      if (r !== undefined)
+        setDraft(city, r.from === undefined ? { to: r.to } : { from: r.from, to: r.to });
+    },
+  );
+  const fromPlace = createMemo(() => trip()?.from ?? draftOf(props.city).from);
+  const toPlace = createMemo(() => (trip() === undefined ? draftOf(props.city).to : trip()?.to));
   const from = createMemo(() => resolve(fromPlace()));
   const to = createMemo(() => resolve(toPlace()));
 
-  const pickFrom = (place: Place) => {
-    chooseStart(props.city, place);
-    if (trip() !== undefined) navigate({ page: "trip", from: place, to: toPlace() });
+  // With both ends set, a pick shows the trip; with one, it waits for the other.
+  const show = (next: Draft) => {
+    setDraft(props.city, next);
+    if (next.to !== undefined) navigate({ page: "trip", from: next.from, to: next.to });
   };
-  const pickTo = (place: Place) => navigate({ page: "trip", from: fromPlace(), to: place });
+  const pickFrom = (place: Place) => show({ from: place, to: toPlace() });
+  const pickTo = (place: Place) => show({ from: fromPlace(), to: place });
   const swap = () => {
     const next = toPlace();
-    if (next === undefined) return;
-    chooseStart(props.city, next);
-    navigate({ page: "trip", from: next, to: fromPlace() });
+    if (next !== undefined) show({ from: next, to: fromPlace() });
   };
 
   return (

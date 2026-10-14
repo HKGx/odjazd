@@ -83,13 +83,22 @@ export const resolver =
   };
 
 /*
- * Where trips start, per city: your location until you pick something else,
- * then that, until you pick again. Nothing else changes it: a location fix
- * arriving, closing a trip or swapping keeps your choice. Memory only.
+ * The trip being put together, per city: where from (your location until you
+ * pick something else) and where to. Every way of setting one end (the
+ * fields, "From here" / "Directions here" on a stop or a map point, the
+ * trip's own URL) keeps the other; only closing the trip clears the
+ * destination. Memory only.
  */
-const [starts, setStarts] = createSignal<ReadonlyMap<CityId, Place>>(new Map());
+export interface Draft {
+  readonly from: Place;
+  readonly to: Place | undefined;
+}
 
-export const startOf = (city: CityId): Place => starts().get(city) ?? { kind: "here" };
+const [drafts, setDrafts] = createSignal<ReadonlyMap<CityId, Draft>>(new Map());
 
-export const chooseStart = (city: CityId, place: Place) =>
-  setStarts((map) => new Map(map).set(city, place));
+const blank: Draft = { from: { kind: "here" }, to: undefined };
+
+export const draftOf = (city: CityId): Draft => drafts().get(city) ?? blank;
+
+export const setDraft = (city: CityId, change: Partial<Draft>) =>
+  setDrafts((map) => new Map(map).set(city, { ...(map.get(city) ?? blank), ...change }));

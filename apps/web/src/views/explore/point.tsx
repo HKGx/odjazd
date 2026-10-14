@@ -9,7 +9,7 @@ import type { LiveMap } from "../../map/live-map.ts";
 import { href } from "../../route.ts";
 import { slugify } from "../../slug.ts";
 import { useCity, withStore } from "../../user.ts";
-import { startOf } from "./endpoints.ts";
+import { draftOf } from "./endpoints.ts";
 import { LineBadge } from "./parts.tsx";
 
 const kinds: ReadonlyArray<{ kind: PlaceKind; label: string }> = [
@@ -106,7 +106,7 @@ export const PointPanel = (props: {
               class="button"
               href={href({
                 page: "trip",
-                from: startOf(props.city),
+                from: draftOf(props.city).from,
                 to: { kind: "at", lat: props.lat, lon: props.lon },
               })}
             >
@@ -117,7 +117,7 @@ export const PointPanel = (props: {
               href={href({
                 page: "trip",
                 from: { kind: "at", lat: props.lat, lon: props.lon },
-                to: undefined,
+                to: draftOf(props.city).to,
               })}
             >
               From here

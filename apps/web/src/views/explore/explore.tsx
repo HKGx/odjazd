@@ -29,7 +29,7 @@ import { RoutesNow } from "./routes-now.tsx";
 import { TripPanel } from "./trip.tsx";
 import { ago } from "./parts.tsx";
 import { PlanBar } from "./search.tsx";
-import { startOf } from "./endpoints.ts";
+import { draftOf, setDraft } from "./endpoints.ts";
 import { StopPanel } from "./stop.tsx";
 import { VehiclePanel } from "./vehicle.tsx";
 
@@ -201,7 +201,11 @@ export const ExploreView = (props: {
               type="button"
               class="ghost close"
               aria-label="Close"
-              onClick={() => navigate({ page: "map" })}
+              onClick={() => {
+                // Closing a trip lets go of its destination; the start stays.
+                if (route().page === "trip") setDraft(props.city.id, { to: undefined });
+                navigate({ page: "map" });
+              }}
             >
               ✕
             </button>
@@ -226,7 +230,7 @@ export const ExploreView = (props: {
                           class="quick-trip"
                           href={href({
                             page: "trip",
-                            from: startOf(props.city.id),
+                            from: draftOf(props.city.id).from,
                             to: { kind: "place", id: place.id },
                           })}
                         >
