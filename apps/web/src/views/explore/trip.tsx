@@ -30,6 +30,8 @@ import { href, navigate, type Place } from "../../route.ts";
 import { kindIcon, preferences, useCity } from "../../user.ts";
 import { LineBadge, LiveTag } from "./parts.tsx";
 
+type Ride = Extract<PlanLegDto, { _tag: "Ride" }>;
+
 interface Resolved {
   readonly label: string;
   readonly endpoint: PlanEndpoint | undefined;
@@ -192,6 +194,8 @@ const LegDetail = (props: {
   timeZone: string;
   live: Accessor<LiveDto>;
   last: boolean;
+  hash: string;
+  context: { ready: number; position: { lat: number; lon: number }; first: boolean } | undefined;
 }) => (
   <Switch>
     <Match when={props.leg._tag === "Walk" ? props.leg : undefined}>
@@ -212,6 +216,7 @@ const LegDetail = (props: {
     <Match when={props.leg._tag === "Ride" ? props.leg : undefined}>
       {(ride) => {
         const vehicle = () => props.live().vehicles.find((v) => v.trip === ride().trip);
+        const [alternatives, setAlternatives] = createSignal(false);
         return (
           <li class="leg ride">
             <span class="leg-time">
@@ -222,6 +227,9 @@ const LegDetail = (props: {
             </span>
             <span class="leg-body">
               <span>
+                <Show when={ride().stayAboard}>
+                  <span class="badge">stay on</span>{" "}
+                </Show>
                 <LineBadge line={ride().line} link /> <strong>{ride().headsign}</strong>
                 <Show when={ride().preferred}>
                   <span class="badge">preferred</span>
@@ -243,6 +251,30 @@ const LegDetail = (props: {
                   )}
                 </Show>
               </span>
+              <Show when={props.context}>
+                {(context) => (
+                  <>
+                    <button
+                      type="button"
+                      class="ghost small alternatives-toggle"
+                      aria-expanded={alternatives() ? "true" : "false"}
+                      onClick={() => setAlternatives(!alternatives())}
+                    >
+                      {alternatives() ? "Hide" : "Other lines here"}
+                    </button>
+                    <Show when={alternatives()}>
+                      <Substitutes
+                        hash={props.hash}
+                        ride={ride()}
+                        ready={context().ready}
+                        position={context().position}
+                        bufferSec={context().first ? 0 : preferences().transferBufferSec}
+                        timeZone={props.timeZone}
+                      />
+                    </Show>
+                  </>
+                )}
+              </Show>
             </span>
           </li>
         );
@@ -250,6 +282,100 @@ const LegDetail = (props: {
     </Match>
   </Switch>
 );
+
+/** Where and when the rider stands before each ride of a journey. */
+const rideContexts = (journey: JourneyDto) => {
+  const contexts: Array<{ ready: number; position: { lat: number; lon: number }; first: boolean }> =
+    [];
+  let ready = journey.departAt;
+  let position = journey.legs[0]?.path[0] ?? { lat: 0, lon: 0 };
+  let first = true;
+  for (const leg of journey.legs) {
+    if (leg._tag === "Ride") {
+      contexts.push({ ready, position, first });
+      first = false;
+    }
+    ready = leg.arriveAt;
+    position = leg.path[leg.path.length - 1] ?? position;
+  }
+  return contexts;
+};
+
+/**
+ * Everything that covers one ride's section (its interchange area to the
+ * next), so a missed or full vehicle isn't a problem: take any of these.
+ */
+const Substitutes = (props: {
+  hash: string;
+  ride: Ride;
+  ready: number;
+  position: { lat: number; lon: number };
+  bufferSec: number;
+  timeZone: string;
+}) => {
+  const options = createEffectMemo(() => {
+    const prefs = untrack(preferences);
+    const query = {
+      hash: props.hash,
+      section: props.ride.section,
+      position: props.position,
+      ready: props.ready,
+      bufferSec: props.bufferSec,
+      walkingSpeedKmh: prefs.walkingSpeedKmh,
+    };
+    return TimetableClient.use((worker) => worker.Section(query));
+  });
+  const others = () =>
+    options().filter((o) => o.line.id !== props.ride.line.id || o.departures.length > 1);
+  return (
+    <Loading fallback={<span class="muted small">Looking for alternatives…</span>}>
+      <Show
+        when={others().length > 0}
+        fallback={
+          <span class="muted small">
+            Nothing else goes from {props.ride.section.from.name} to {props.ride.section.to.name} in
+            the next half hour.
+          </span>
+        }
+      >
+        <div class="substitutes">
+          <span class="small">
+            {props.ride.section.from.name} → {props.ride.section.to.name}: any of{" "}
+            <For each={options()}>{(option) => <LineBadge line={option.line} small />}</For>
+          </span>
+          <ul class="substitute-list small">
+            <For each={options()}>
+              {(option) => (
+                <li>
+                  <LineBadge line={option.line} small />
+                  <Show when={option.preferred}>
+                    <span class="badge">preferred</span>
+                  </Show>
+                  <span>
+                    <For each={option.departures}>
+                      {(d, k) => (
+                        <>
+                          {k() > 0 ? ", " : ""}
+                          <span
+                            class={{ current: d.trip === props.ride.trip }}
+                            title={`${d.from} → ${d.to}, arrive ${clock(d.arriveAt, props.timeZone)}`}
+                          >
+                            {clock(d.departAt, props.timeZone)}
+                            <span class="muted"> (arr. {clock(d.arriveAt, props.timeZone)})</span>
+                          </span>
+                        </>
+                      )}
+                    </For>
+                  </span>
+                </li>
+              )}
+            </For>
+          </ul>
+        </div>
+      </Show>
+    </Loading>
+  );
+};
 
 /** From A to B: options leaving soon, with live delays, drawn on the map. */
 export const TripPanel = (props: {
@@ -346,9 +472,10 @@ export const TripPanel = (props: {
       count: 6,
       transferBufferSec: prefs.transferBufferSec,
       walkingSpeedKmh: prefs.walkingSpeedKmh,
-      preferLines: prefs.preferredLines,
-      avoidLines: prefs.avoidedLines,
       preferencePenaltySec: prefs.preferencePenaltyMin * 60,
+      routeToleranceSec: prefs.routeToleranceMin * 60,
+      areas: records().areas.map((r) => r.area),
+      corridors: records().corridors.map((r) => r.corridor),
     };
     return TimetableClient.use((worker) => Effect.asSome(worker.Plan(query)));
   });
@@ -461,6 +588,13 @@ export const TripPanel = (props: {
             when={(planned()?.journeys.length ?? 0) > 0}
             fallback={<p class="empty">No connections found in the next hours.</p>}
           >
+            <Show when={planned()?.why}>
+              {(why) => (
+                <p class="why small">
+                  <strong>Why the suggestion:</strong> {why()}
+                </p>
+              )}
+            </Show>
             <ol class="journeys" data-pending={isPending(() => result())}>
               <For each={planned()?.journeys ?? []}>
                 {(journey, i) => {
@@ -498,12 +632,20 @@ export const TripPanel = (props: {
                               live
                             </span>
                           </Show>
+                          <Show when={journey.route}>
+                            {(route) => <span class="badge route-tag">↝ {route().name}</span>}
+                          </Show>
                           <Show when={planned()?.recommended === i()}>
                             <span class="badge">suggested</span>
                           </Show>
                         </span>
                       </button>
                       <Show when={open()}>
+                        <Show when={journey.reasons.length > 0}>
+                          <ul class="reasons small">
+                            <For each={journey.reasons}>{(reason) => <li>{reason}</li>}</For>
+                          </ul>
+                        </Show>
                         <ol class="legs">
                           <For each={journey.legs}>
                             {(leg, j) => (
@@ -512,6 +654,15 @@ export const TripPanel = (props: {
                                 timeZone={props.timeZone}
                                 live={props.live}
                                 last={j() === journey.legs.length - 1}
+                                hash={props.hash}
+                                context={
+                                  leg._tag === "Ride"
+                                    ? rideContexts(journey)[
+                                        journey.legs.slice(0, j()).filter((l) => l._tag === "Ride")
+                                          .length
+                                      ]
+                                    : undefined
+                                }
                               />
                             )}
                           </For>
@@ -527,6 +678,9 @@ export const TripPanel = (props: {
               </For>
             </ol>
           </Show>
+          <For each={planned()?.notes ?? []}>
+            {(note) => <p class="muted small note">{note}</p>}
+          </For>
         </Loading>
       </Show>
     </article>

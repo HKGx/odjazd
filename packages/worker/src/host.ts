@@ -134,7 +134,16 @@ export const makeHost = (timetable: Timetable) => {
 
   const planner = makePlanner(timetable, { ...explorer, label });
 
-  return { timetable, compare, board, plan: planner.plan, ...explorer };
+  return {
+    timetable,
+    compare,
+    board,
+    plan: planner.plan,
+    section: planner.section,
+    sectionLines: planner.sectionLines,
+    routeNow: planner.routeNow,
+    ...explorer,
+  };
 };
 
 export type Host = ReturnType<typeof makeHost>;

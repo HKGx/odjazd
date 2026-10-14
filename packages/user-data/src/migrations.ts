@@ -6,7 +6,22 @@ import { defaultPreferences, userDataVersion } from "./schema.ts";
  * pre-release shape (no document): nothing to carry over.
  */
 const steps: ReadonlyArray<(doc: Record<string, unknown>) => Record<string, unknown>> = [
-  () => ({ schemaVersion: 1, records: [], preferences: defaultPreferences, seeded: [] }),
+  () => ({
+    schemaVersion: 1,
+    records: [],
+    preferences: {
+      ...defaultPreferences,
+      preferredLines: [],
+      avoidedLines: [],
+    },
+    seeded: [],
+  }),
+  // 1 → 2: line preferences moved from app-wide settings onto route legs.
+  (doc) => {
+    const preferences = (doc["preferences"] ?? {}) as Record<string, unknown>;
+    const { preferredLines: _p, avoidedLines: _a, ...rest } = preferences;
+    return { ...doc, schemaVersion: 2, preferences: { routeToleranceMin: 5, ...rest } };
+  },
 ];
 
 /** Brings an unknown JSON document up to the current schema version. Throws on garbage. */

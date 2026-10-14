@@ -1335,3 +1335,56 @@ a.button:hover {
   padding-left: 8px;
   margin-left: -11px;
 }
+
+/* Planner explanations and section alternatives. */
+.why {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--accent, #2a7);
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  border-radius: 4px;
+}
+.route-tag {
+  background: color-mix(in srgb, var(--accent, #2a7) 18%, transparent);
+}
+.reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  list-style: none;
+  margin: 0.25rem 0.75rem;
+  padding: 0;
+}
+.reasons li::before {
+  content: "✓ ";
+  color: var(--accent, #2a7);
+}
+.note {
+  margin: 0.5rem 0 0;
+}
+.alternatives-toggle {
+  align-self: flex-start;
+  padding: 0.1rem 0;
+}
+.substitutes {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+.substitute-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+.substitute-list li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.substitute-list .current {
+  font-weight: 600;
+  text-decoration: underline;
+}

@@ -46,7 +46,7 @@ describe("UserDataStore", () => {
       Effect.gen(function* () {
         const store = yield* UserDataStore;
         const data = yield* store.get;
-        expect(data.schemaVersion).toBe(1);
+        expect(data.schemaVersion).toBe(2);
         expect(data.records).toEqual([]);
         expect(data.seeded).toEqual([]);
         expect(data.preferences).toEqual(defaultPreferences);
@@ -246,7 +246,7 @@ describe("UserDataStore", () => {
         const stored = yield* kv.get(storageKey);
         expect(stored).toBeTypeOf("string");
         const parsed = JSON.parse(stored ?? "null");
-        expect(parsed.schemaVersion).toBe(1);
+        expect(parsed.schemaVersion).toBe(2);
         expect(parsed.records).toEqual([JSON.parse(JSON.stringify(saved))]);
       }),
     );
@@ -423,7 +423,7 @@ describe("UserDataStore", () => {
         const store = yield* UserDataStore;
         expect(yield* store.importJson("{}")).toBe(0);
         const data = yield* store.get;
-        expect(data.schemaVersion).toBe(1);
+        expect(data.schemaVersion).toBe(2);
         expect(data.records).toEqual([]);
         expect(data.seeded).toEqual([]);
         expect(data.preferences).toEqual(defaultPreferences);

@@ -1,5 +1,5 @@
 import { CityManifest, Vehicle } from "@odjazd/api";
-import { Corridor, InterchangeArea, LineRef, Mode, ServiceDate, TimeZone } from "@odjazd/model";
+import { Corridor, InterchangeArea, LegRule, Mode, ServiceDate, TimeZone } from "@odjazd/model";
 import { Schema } from "effect";
 
 /*
@@ -273,11 +273,28 @@ export const PlanQuery = Schema.Struct({
   count: Schema.Int,
   transferBufferSec: Schema.Finite,
   walkingSpeedKmh: Schema.Finite,
-  preferLines: Schema.Array(LineRef),
-  avoidLines: Schema.Array(LineRef),
+  /** On route legs that prefer lines, other lines count as leaving this much later. */
   preferencePenaltySec: Schema.Finite,
+  /** A trip on the user's route is suggested if at most this much slower than the fastest. */
+  routeToleranceSec: Schema.Finite,
+  /** The user's areas and routes for the city: candidates when they fit the trip. */
+  areas: Schema.Array(InterchangeArea),
+  corridors: Schema.Array(Corridor),
 });
 export type PlanQuery = typeof PlanQuery.Type;
+
+const Point = Schema.Struct({ lat: Schema.Finite, lon: Schema.Finite });
+
+/**
+ * One interchange section of a trip: from an area to the next under a leg
+ * rule. Any vehicle the rule allows between the two areas can substitute.
+ */
+export const SectionRef = Schema.Struct({
+  from: InterchangeArea,
+  to: InterchangeArea,
+  rule: LegRule,
+});
+export type SectionRef = typeof SectionRef.Type;
 
 export const PlanLegDto = Schema.Union([
   Schema.TaggedStruct("Walk", {
@@ -304,8 +321,12 @@ export const PlanLegDto = Schema.Union([
     /** Live delay at boarding, when the trip reports one. */
     delay: Schema.optionalKey(Schema.Finite),
     stops: Schema.Int,
+    /** The section's rule prefers this line. */
     preferred: Schema.Boolean,
-    path: Schema.Array(Schema.Struct({ lat: Schema.Finite, lon: Schema.Finite })),
+    /** Continues on the same vehicle as the previous ride. */
+    stayAboard: Schema.Boolean,
+    section: SectionRef,
+    path: Schema.Array(Point),
   }),
 ]);
 export type PlanLegDto = typeof PlanLegDto.Type;
@@ -318,14 +339,87 @@ export const JourneyDto = Schema.Struct({
   /** Any ride carries a live delay. */
   live: Schema.Boolean,
   legs: Schema.Array(PlanLegDto),
+  /** Set when the journey follows one of the user's routes (or part of it). */
+  route: Schema.optionalKey(
+    Schema.Struct({
+      slug: Schema.String,
+      name: Schema.String,
+      /** Only part of the route fits this trip. */
+      partial: Schema.Boolean,
+      /** Names of the areas used, in order. */
+      via: Schema.Array(Schema.String),
+    }),
+  ),
+  /** Short facts that set this option apart: fastest, fewest changes, your route… */
+  reasons: Schema.Array(Schema.String),
 });
 export type JourneyDto = typeof JourneyDto.Type;
 
 export const PlanDto = Schema.Struct({
   journeys: Schema.Array(JourneyDto),
-  /** Index of the suggested journey, given the line preferences. */
+  /** Index of the suggested journey. */
   recommended: Schema.optionalKey(Schema.Int),
+  /** Why that one, in a sentence. */
+  why: Schema.optionalKey(Schema.String),
+  /** What happened with the user's routes for this trip. */
+  notes: Schema.Array(Schema.String),
 });
+
+export const SectionQuery = Schema.Struct({
+  hash: Hash,
+  section: SectionRef,
+  /** Where the rider is when ready to board. */
+  position: Point,
+  ready: Epoch,
+  bufferSec: Schema.Finite,
+  walkingSpeedKmh: Schema.Finite,
+});
+export type SectionQuery = typeof SectionQuery.Type;
+
+export const SectionDto = Schema.Array(
+  Schema.Struct({
+    line: LineLabel,
+    preferred: Schema.Boolean,
+    departures: Schema.Array(
+      Schema.Struct({
+        trip: Schema.String,
+        from: Schema.String,
+        to: Schema.String,
+        departAt: Epoch,
+        arriveAt: Epoch,
+        scheduledDepartAt: Epoch,
+        delay: Schema.optionalKey(Schema.Finite),
+      }),
+    ),
+  }),
+);
+export type SectionDto = typeof SectionDto.Type;
+
+export const SectionLinesQuery = Schema.Struct({
+  hash: Hash,
+  from: InterchangeArea,
+  to: InterchangeArea,
+  /** Lines running in the 24 h from here. */
+  at: Epoch,
+});
+export type SectionLinesQuery = typeof SectionLinesQuery.Type;
+
+export const SectionLinesDto = Schema.Array(
+  Schema.Struct({ line: LineLabel, trips: Schema.Int, rideSec: Schema.Finite }),
+);
+export type SectionLinesDto = typeof SectionLinesDto.Type;
+
+export const RouteNowQuery = Schema.Struct({
+  hash: Hash,
+  areas: Schema.Array(InterchangeArea),
+  corridor: Corridor,
+  at: Epoch,
+  count: Schema.Int,
+  transferBufferSec: Schema.Finite,
+  walkingSpeedKmh: Schema.Finite,
+  preferencePenaltySec: Schema.Finite,
+});
+export type RouteNowQuery = typeof RouteNowQuery.Type;
 export type PlanDto = typeof PlanDto.Type;
 
 export const LiveStatus = Schema.Literals(["connecting", "live", "offline"]);

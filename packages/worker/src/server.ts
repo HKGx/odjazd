@@ -173,6 +173,9 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
         Stops: ({ hash }) => withHost(hash, (host) => host.allStops()),
         Nearby: (query) => withHost(query.hash, (host) => host.nearby(query)),
         Plan: (query) => withHost(query.hash, (host) => host.plan(query)),
+        Section: (query) => withHost(query.hash, (host) => host.section(query)),
+        SectionLines: (query) => withHost(query.hash, (host) => host.sectionLines(query)),
+        RouteNow: (query) => withHost(query.hash, (host) => host.routeNow(query)),
         StopBoard: (query) => withHost(query.hash, (host) => host.stopBoard(query)),
         LineRoute: (query) =>
           withHost(query.hash, (host) => Option.fromUndefinedOr(host.lineRoute(query))),

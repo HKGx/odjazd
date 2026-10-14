@@ -1,8 +1,6 @@
 import type { CityList } from "@odjazd/api";
-import { LineRef } from "@odjazd/model";
 import type { Theme } from "@odjazd/user-data";
-import { Schema } from "effect";
-import { createSignal, For, Show } from "solid-js";
+import { For, Show } from "solid-js";
 import { preferences, updatePreferences } from "../user.ts";
 
 const themes: ReadonlyArray<{ value: Theme; label: string }> = [
@@ -10,44 +8,6 @@ const themes: ReadonlyArray<{ value: Theme; label: string }> = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
-
-/** Comma- or space-separated line refs; `undefined` when one doesn't parse. */
-const parseLines = (text: string): ReadonlyArray<LineRef> | undefined => {
-  const refs: Array<LineRef> = [];
-  for (const part of text.split(/[\s,]+/).filter((p) => p !== "")) {
-    const ref = Schema.decodeOption(LineRef)(part);
-    if (ref._tag === "None") return undefined;
-    refs.push(ref.value);
-  }
-  return [...new Set(refs)];
-};
-
-const LinesField = (props: {
-  label: string;
-  hint: string;
-  value: ReadonlyArray<LineRef>;
-  onSave: (lines: ReadonlyArray<LineRef>) => void;
-}) => {
-  const [error, setError] = createSignal(false);
-  return (
-    <label class="stack">
-      {props.label}
-      <input
-        value={props.value.join(", ")}
-        placeholder="tram:10, bus:86"
-        aria-invalid={error() ? "true" : undefined}
-        onChange={(e) => {
-          const lines = parseLines(e.currentTarget.value);
-          setError(lines === undefined);
-          if (lines !== undefined) props.onSave(lines);
-        }}
-      />
-      <span class={error() ? "form-error small" : "muted small"}>
-        {error() ? "Write lines as mode:number, like tram:10 or bus:58A." : props.hint}
-      </span>
-    </label>
-  );
-};
 
 /** Preferences; each one changes what the trip and comparison views compute. */
 export const SettingsView = (props: { cities: CityList }) => (
@@ -81,21 +41,28 @@ export const SettingsView = (props: { cities: CityList }) => (
     </div>
 
     <div class="card">
-      <h2>Lines</h2>
-      <LinesField
-        label="Preferred lines"
-        hint="Picked over others unless they're much slower."
-        value={preferences().preferredLines}
-        onSave={(preferredLines) => updatePreferences({ preferredLines })}
-      />
-      <LinesField
-        label="Avoided lines"
-        hint="Never used, unless a route asks for them explicitly."
-        value={preferences().avoidedLines}
-        onSave={(avoidedLines) => updatePreferences({ avoidedLines })}
-      />
+      <h2>Routes</h2>
+      <p class="muted small">
+        Which lines to take is set per section of each route, in{" "}
+        <a href="#/places">Places → Routes</a>. These decide how much they count.
+      </p>
       <label class="stack">
-        Preference strength: {preferences().preferencePenaltyMin} min
+        Suggest my route if it's at most {preferences().routeToleranceMin} min slower
+        <input
+          type="range"
+          min="0"
+          max="30"
+          step="1"
+          value={String(preferences().routeToleranceMin)}
+          onChange={(e) => updatePreferences({ routeToleranceMin: Number(e.currentTarget.value) })}
+        />
+        <span class="muted small">
+          When planning a trip, a saved route that fits is suggested over the fastest option unless
+          it arrives later than this.
+        </span>
+      </label>
+      <label class="stack">
+        Preferred lines on a section: worth waiting {preferences().preferencePenaltyMin} min
         <input
           type="range"
           min="0"
@@ -106,7 +73,10 @@ export const SettingsView = (props: { cities: CityList }) => (
             updatePreferences({ preferencePenaltyMin: Number(e.currentTarget.value) })
           }
         />
-        <span class="muted small">Other lines count as leaving this much later than they do.</span>
+        <span class="muted small">
+          On a section where you prefer some lines, another line is only taken if it leaves at least
+          this much sooner.
+        </span>
       </label>
     </div>
 

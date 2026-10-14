@@ -1,4 +1,4 @@
-import { CityId, Corridor, InterchangeArea, LatLon, LineRef, Ulid } from "@odjazd/model";
+import { CityId, Corridor, InterchangeArea, LatLon, Ulid } from "@odjazd/model";
 import { Schema } from "effect";
 
 /*
@@ -54,11 +54,13 @@ export const Preferences = Schema.Struct({
   walkingSpeedKmh: Schema.Finite.check(Schema.isBetween({ minimum: 2, maximum: 8 })),
   /** Minimum time to change vehicles, seconds. */
   transferBufferSec: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 900 })),
-  /** Lines to favor and to never use, applied on top of each route's own rules. */
-  preferredLines: Schema.Array(LineRef),
-  avoidedLines: Schema.Array(LineRef),
-  /** Other lines count as leaving this much later when a preferred line exists. */
+  /**
+   * On a route leg that prefers lines, other lines count as leaving this much
+   * later. Line preferences themselves live on route legs, never app-wide.
+   */
   preferencePenaltyMin: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 30 })),
+  /** A trip following one of the user's routes is suggested when at most this much slower. */
+  routeToleranceMin: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 30 })),
   theme: Theme,
   /** City opened at start; the first available when absent. */
   city: Schema.optionalKey(CityId),
@@ -69,14 +71,13 @@ export type Preferences = typeof Preferences.Type;
 export const defaultPreferences: Preferences = {
   walkingSpeedKmh: 4.5,
   transferBufferSec: 60,
-  preferredLines: [],
-  avoidedLines: [],
   preferencePenaltyMin: 4,
+  routeToleranceMin: 5,
   theme: "system",
   updatedAt: 0,
 };
 
-export const userDataVersion = 1;
+export const userDataVersion = 2;
 
 /** The whole store, as kept on the device and as exported. */
 export const UserData = Schema.Struct({

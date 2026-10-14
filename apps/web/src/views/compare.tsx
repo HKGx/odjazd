@@ -10,7 +10,7 @@ import { Option, Schema } from "effect";
 import { createEffect, createMemo, createSignal, For, isPending, Show, untrack } from "solid-js";
 import { createEffectMemo } from "../effect-solid.ts";
 import { clock, fromClock, minutes, nowClock, oneDecimal, toClock, today } from "../format.ts";
-import { queryPreferences, withLinePreferences } from "../apply-preferences.ts";
+import { queryPreferences } from "../apply-preferences.ts";
 import { persisted } from "../prefs.ts";
 import { href } from "../route.ts";
 import { preferences, updatePreferences } from "../user.ts";
@@ -43,9 +43,7 @@ export const CompareView = (props: { loaded: LoadResult; intent: SeedIntent }) =
   const [showTable, setShowTable] = createSignal(false);
 
   const corridors = createMemo(() =>
-    props.intent.corridors
-      .filter((corridor) => !hidden().includes(corridor.slug))
-      .map((corridor) => withLinePreferences(corridor, preferences())),
+    props.intent.corridors.filter((corridor) => !hidden().includes(corridor.slug)),
   );
 
   const comparison = createEffectMemo(() => {
@@ -154,14 +152,8 @@ export const CompareView = (props: { loaded: LoadResult; intent: SeedIntent }) =
         </div>
       </form>
       <p class="muted small applied">
-        Walking {oneDecimal(preferences().walkingSpeedKmh)} km/h
-        {preferences().preferredLines.length > 0
-          ? ` · prefer ${preferences().preferredLines.join(", ")}`
-          : ""}
-        {preferences().avoidedLines.length > 0
-          ? ` · avoid ${preferences().avoidedLines.join(", ")}`
-          : ""}{" "}
-        · <a href={href({ page: "settings" })}>Settings</a> ·{" "}
+        Walking {oneDecimal(preferences().walkingSpeedKmh)} km/h ·{" "}
+        <a href={href({ page: "settings" })}>Settings</a> ·{" "}
         <a href={href({ page: "places" })}>Edit routes</a>
       </p>
 
