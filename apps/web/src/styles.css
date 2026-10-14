@@ -241,7 +241,7 @@ nav.dock {
     appearance: none;
     field-sizing: content;
     /* Room for the longer names, so switching cities doesn't resize the dock. */
-    min-width: 6.6em;
+    min-width: 6.2em;
     height: 44px;
     min-height: 0;
     padding: 0 26px 0 14px;
@@ -282,7 +282,8 @@ nav.dock {
   nav.dock a {
     display: grid;
     place-items: center;
-    width: 44px;
+    /* Narrow phones: the tabs give way so the dock never runs off the screen. */
+    width: clamp(34px, calc((100vw - 140px) / 6), 44px);
     height: 44px;
     border-radius: 999px;
     color: var(--text-secondary);

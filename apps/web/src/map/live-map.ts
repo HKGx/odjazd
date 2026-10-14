@@ -623,21 +623,24 @@ export class LiveMap {
   /** Fly over to a city, framing its network. */
   showCity(bounds: Bounds) {
     this.target = undefined;
+    // In a short window the sheet can leave no room for the box: frame it in what's left
+    // (at least 120 px) rather than give up and stay in the old city.
+    const height = this.map.getContainer().clientHeight;
+    const inset = Math.min(this.bottomInset, Math.max(0, height - 160));
     const camera = this.map.cameraForBounds(
       [
         [bounds.west, bounds.south],
         [bounds.east, bounds.north],
       ],
-      { padding: { top: 40, left: 40, right: 40, bottom: 40 + this.bottomInset } },
+      { padding: { top: 20, left: 20, right: 20, bottom: 20 + inset } },
     );
-    if (camera === undefined) return;
     // The catalog box includes outlying stops: frame the core a bit closer. The box's own
     // centre with the padding passed along: the camera's centre has the padding baked in at
     // its zoom, so zooming it further would push the city up behind the plan bar.
     this.map.flyTo({
       center: [(bounds.west + bounds.east) / 2, (bounds.south + bounds.north) / 2],
-      zoom: Math.max((camera.zoom ?? 11) + 1, 11),
-      padding: { top: 0, left: 0, right: 0, bottom: this.bottomInset },
+      zoom: Math.max((camera?.zoom ?? 10) + 1, 11),
+      padding: { top: 0, left: 0, right: 0, bottom: inset },
       duration: 1800,
     });
   }
