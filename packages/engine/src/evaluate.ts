@@ -34,6 +34,11 @@ export interface PreparedCorridor {
 export interface LegResult {
   readonly line: LineId;
   readonly tripFeedId: string;
+  /** Trip index, service day and stop time indexes of boarding and alighting. */
+  readonly trip: number;
+  readonly day: number;
+  readonly board: number;
+  readonly alight: number;
   readonly boardStop: number;
   readonly alightStop: number;
   readonly walkSec: number;
@@ -164,6 +169,10 @@ export const evaluateFirstSuitable = (
     results.push({
       line: timetable.lines[timetable.trips.line[trip] ?? 0]?.id ?? ("?" as LineId),
       tripFeedId: timetable.trips.feedIds[trip] ?? "",
+      trip,
+      day,
+      board: leg.board[best] ?? 0,
+      alight: leg.alight[best] ?? 0,
       boardStop,
       alightStop,
       walkSec: bestWalk,

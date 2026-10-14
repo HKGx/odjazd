@@ -5,3 +5,4 @@ export * from "./evaluate.ts";
 export * from "./legs.ts";
 export * from "./search.ts";
 export * from "./plan.ts";
+export * from "./routes.ts";
