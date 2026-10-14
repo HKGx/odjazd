@@ -214,6 +214,12 @@ export class LiveMap {
     };
     this.map.on("sourcedata", fold);
     this.map.on("styledata", fold);
+    // The basemap style names a few patterns its sprite lacks ("wood-pattern"): draw them blank.
+    this.map.setMissingStyleImageResolver((id) => {
+      if (!this.map.hasImage(id)) {
+        this.map.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) });
+      }
+    });
     this.map.on("style.load", () => this.install());
     this.map.on("dragstart", () => (this.target = undefined));
     // Only user gestures carry the DOM event; our own camera moves don't.

@@ -29,6 +29,7 @@ import { now } from "../../now.ts";
 import { href, navigate, type Place } from "../../route.ts";
 import { kindIcon, preferences, useCity } from "../../user.ts";
 import { fromJourney } from "../../route-draft.ts";
+import { longPress } from "../../press.ts";
 import { editDraft } from "./handoff.ts";
 import { LineBadge, LiveTag } from "./parts.tsx";
 
@@ -386,6 +387,75 @@ const Substitutes = (props: {
 };
 
 /** From A to B: options leaving soon, with live delays, drawn on the map. */
+const changes = (journey: JourneyDto) =>
+  journey.rides === 0
+    ? "Walk only"
+    : journey.rides === 1
+      ? "None, direct"
+      : `${journey.rides - 1} change${journey.rides > 2 ? "s" : ""}`;
+
+/** Everything the planner weighed for one option: opened by a long-press on it. */
+const JourneyWhy = (props: {
+  journey: JourneyDto;
+  suggested: boolean;
+  why: string | undefined;
+  notes: ReadonlyArray<string>;
+  timeZone: string;
+  onClose: () => void;
+}) => (
+  <>
+    <h2>
+      {clock(props.journey.departAt, props.timeZone)} →{" "}
+      {clock(props.journey.arriveAt, props.timeZone)}{" "}
+      <span class="muted">· {duration(props.journey.arriveAt - props.journey.departAt)}</span>
+    </h2>
+    <Show when={props.suggested}>
+      <p>
+        <strong>Suggested.</strong> {props.why}
+      </p>
+    </Show>
+    <Show when={props.journey.reasons.length > 0}>
+      <h3>What sets it apart</h3>
+      <ul class="reasons">
+        <For each={props.journey.reasons}>{(reason) => <li>{reason}</li>}</For>
+      </ul>
+    </Show>
+    <dl class="facts">
+      <dt>Changes</dt>
+      <dd>{changes(props.journey)}</dd>
+      <dt>Walking</dt>
+      <dd>{Math.round(props.journey.walkMeters)} m</dd>
+      <Show when={!props.journey.live}>
+        <dt>Delays</dt>
+        <dd>Schedule only</dd>
+      </Show>
+      <Show when={props.journey.route}>
+        {(route) => (
+          <>
+            <dt>Your route</dt>
+            <dd>
+              {route().name}
+              {route().partial ? " (part of it)" : ""}
+              {route().via.length > 0 ? ` · via ${route().via.join(" → ")}` : ""}
+            </dd>
+          </>
+        )}
+      </Show>
+    </dl>
+    <Show when={props.notes.length > 0}>
+      <h3>Your routes</h3>
+      <ul class="notes">
+        <For each={props.notes}>{(note) => <li>{note}</li>}</For>
+      </ul>
+    </Show>
+    <div class="actions">
+      <button type="button" onClick={() => props.onClose()}>
+        Close
+      </button>
+    </div>
+  </>
+);
+
 export const TripPanel = (props: {
   hash: string;
   city: CityId;
@@ -401,6 +471,12 @@ export const TripPanel = (props: {
   // The journey the user opened, by the vehicles it rides (stable across live refreshes);
   // `undefined` follows the suggestion, `null` means the user closed it.
   const [selected, setSelected] = createSignal<string | null>();
+  // The option whose reasoning is open in the dialog.
+  const [inspected, setInspected] = createSignal<JourneyDto>();
+  let dialog: HTMLDialogElement | undefined;
+  createEffect(inspected, (journey) => {
+    if (journey !== undefined && dialog !== undefined && !dialog.open) dialog.showModal();
+  });
 
   const resolve = (place: Place | undefined): Resolved | undefined => {
     if (place === undefined) return undefined;
@@ -442,7 +518,7 @@ export const TripPanel = (props: {
       case "at": {
         const near = nearestStop(props.stops(), place.lat, place.lon);
         return {
-          label: near === undefined ? "⌖ Point on the map" : `⌖ Near ${near}`,
+          label: near === undefined ? "◆ Point on the map" : `◆ Near ${near}`,
           endpoint: { lat: place.lat, lon: place.lon },
         };
       }
@@ -608,24 +684,33 @@ export const TripPanel = (props: {
             when={(planned()?.journeys.length ?? 0) > 0}
             fallback={<p class="empty">No connections found in the next hours.</p>}
           >
-            <Show when={planned()?.why}>
-              {(why) => (
-                <p class="why small">
-                  <strong>Why the suggestion:</strong> {why()}
-                </p>
-              )}
-            </Show>
             <ol class="journeys" data-pending={isPending(() => result())}>
               <For each={planned()?.journeys ?? []} keyed={journeyKey}>
                 {(journey, i) => {
                   const open = () => shown() === journey();
+                  const press = longPress(() => setInspected(journey()));
                   return (
-                    <li class={{ journey: true, open: open() }}>
+                    <li
+                      class={{
+                        journey: true,
+                        open: open(),
+                        suggested: planned()?.recommended === i(),
+                      }}
+                    >
                       <button
                         type="button"
                         class="journey-head"
                         aria-expanded={open() ? "true" : "false"}
-                        onClick={() => setSelected(open() ? null : journeyKey(journey()))}
+                        onPointerDown={press.onPointerDown}
+                        onPointerMove={press.onPointerMove}
+                        onPointerUp={press.onPointerUp}
+                        onPointerCancel={press.onPointerCancel}
+                        onPointerLeave={press.onPointerLeave}
+                        onContextMenu={press.onContextMenu}
+                        onClick={() => {
+                          if (press.swallowClick()) return;
+                          setSelected(open() ? null : journeyKey(journey()));
+                        }}
                       >
                         <span class="journey-times">
                           <strong>
@@ -655,17 +740,9 @@ export const TripPanel = (props: {
                           <Show when={journey().route}>
                             {(route) => <span class="badge route-tag">↝ {route().name}</span>}
                           </Show>
-                          <Show when={planned()?.recommended === i()}>
-                            <span class="badge">suggested</span>
-                          </Show>
                         </span>
                       </button>
                       <Show when={open()}>
-                        <Show when={journey().reasons.length > 0}>
-                          <ul class="reasons small">
-                            <For each={journey().reasons}>{(reason) => <li>{reason}</li>}</For>
-                          </ul>
-                        </Show>
                         <ol class="legs">
                           <For each={journey().legs} keyed={false}>
                             {(leg, j) => (
@@ -695,6 +772,13 @@ export const TripPanel = (props: {
                           </li>
                         </ol>
                         <div class="actions journey-actions">
+                          <button
+                            type="button"
+                            class="ghost small"
+                            onClick={() => setInspected(journey())}
+                          >
+                            Why this option…
+                          </button>
                           <Show
                             when={journey().route}
                             fallback={
@@ -743,11 +827,33 @@ export const TripPanel = (props: {
               </For>
             </ol>
           </Show>
-          <For each={planned()?.notes ?? []}>
-            {(note) => <p class="muted small note">{note}</p>}
-          </For>
         </Loading>
       </Show>
+      <dialog
+        ref={(element) => (dialog = element)}
+        class="why-dialog"
+        aria-label="Why this option"
+        onClose={() => setInspected(undefined)}
+        // A tap on the backdrop (the dialog box itself, outside its content) closes it.
+        onClick={(event) => {
+          if (event.target === dialog) dialog.close();
+        }}
+      >
+        <Show when={inspected()}>
+          {(journey) => (
+            <div class="why-content">
+              <JourneyWhy
+                journey={journey()}
+                suggested={planned()?.journeys.indexOf(journey()) === planned()?.recommended}
+                why={planned()?.why}
+                notes={planned()?.notes ?? []}
+                timeZone={props.timeZone}
+                onClose={() => dialog?.close()}
+              />
+            </div>
+          )}
+        </Show>
+      </dialog>
     </article>
   );
 };

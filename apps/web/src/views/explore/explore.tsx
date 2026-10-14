@@ -138,11 +138,11 @@ export const ExploreView = (props: {
     ([m, live]) => m?.setVehicles(live.vehicles),
   );
   createEffect(
-    () => [map(), props.city] as const,
-    ([m, city]) => {
+    () => [map(), props.city, props.cities] as const,
+    ([m, city, cities]) => {
       if (m === undefined) return;
       m.setCities(
-        props.cities.map((c) => ({ id: c.id, name: c.name["en"] ?? c.id, center: c.center })),
+        cities.map((c) => ({ id: c.id, name: c.name["en"] ?? c.id, center: c.center })),
         city.id,
       );
       if (!bboxContains(city.bbox, m.center())) m.showCity(city.bbox);

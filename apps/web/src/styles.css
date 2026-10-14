@@ -1507,30 +1507,62 @@ a.button:hover {
 }
 
 /* Planner explanations and section alternatives. */
-.why {
-  margin: 0.25rem 0 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-left: 3px solid var(--accent, #2a7);
-  background: color-mix(in srgb, currentColor 5%, transparent);
-  border-radius: 4px;
+.journey.suggested {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.journey-head {
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 .route-tag {
   background: color-mix(in srgb, var(--accent, #2a7) 18%, transparent);
 }
-.reasons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.5rem;
-  list-style: none;
-  margin: 0.25rem 0.75rem;
+.why-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(80dvh, 640px);
   padding: 0;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
 }
-.reasons li::before {
-  content: "✓ ";
-  color: var(--accent, #2a7);
+.why-dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
 }
-.note {
-  margin: 0.5rem 0 0;
+.why-dialog[open] {
+  animation: toast-in 160ms ease-out;
+}
+.why-content {
+  padding: 18px 20px 16px;
+}
+.why-content h2 {
+  font-size: 1.1rem;
+  margin: 0 0 10px;
+}
+.why-content h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 16px 0 6px;
+}
+.why-content p {
+  margin: 0;
+}
+.reasons,
+.notes {
+  margin: 0;
+  padding-left: 1.1em;
+}
+.reasons li,
+.notes li {
+  margin: 2px 0;
+}
+.why-content .actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 .alternatives-toggle {
   align-self: flex-start;
