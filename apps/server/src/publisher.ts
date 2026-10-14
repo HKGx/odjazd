@@ -75,7 +75,8 @@ export class Publisher extends Context.Service<
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const http = yield* HttpClient.HttpClient;
+        // GitHub release assets and Geofabrik `-latest` extracts both redirect.
+        const http = HttpClient.followRedirects(yield* HttpClient.HttpClient);
         const root = path.resolve(yield* dataDir);
         const feedsDir = path.join(root, "feeds");
         const manifestsDir = path.join(root, "manifests");
@@ -184,8 +185,7 @@ export class Publisher extends Context.Service<
               .pipe(Stream.runForEach((chunk) => Effect.sync(() => hash.update(chunk))));
             return { file: local.value, temporary: false, hash: hash.digest("hex") as ContentHash };
           }
-          // Geofabrik redirects `-latest` to the dated file.
-          const response = yield* HttpClient.followRedirects(http).get(url);
+          const response = yield* http.get(url);
           if (response.status !== 200)
             return yield* Effect.fail(`${url} answered ${response.status}`);
           const file = path.join(osmDir, `${entry.id}.osm.pbf.tmp`);
