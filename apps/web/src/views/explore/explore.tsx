@@ -17,6 +17,7 @@ import {
   untrack,
 } from "solid-js";
 import { createEffectMemo } from "../../effect-solid.ts";
+import { VehicleIcon } from "../../icons.tsx";
 import type { LiveMap } from "../../map/live-map.ts";
 import { now } from "../../now.ts";
 import { href, navigate, route } from "../../route.ts";
@@ -33,6 +34,9 @@ import { Balloon } from "./balloon.tsx";
 import { draftOf, setDraft } from "./endpoints.ts";
 import { StopPanel } from "./stop.tsx";
 import { VehiclePanel } from "./vehicle.tsx";
+
+/** Live positions arrive every 15 s; older than this, the chip says how old. */
+const STALE = 45;
 
 const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -203,15 +207,39 @@ export const ExploreView = (props: {
     }
     return `${count} live · ${ago(now() - live.fetchedAt)}`;
   });
+  // The chip: the dot says live, connecting or offline; the age only once it's stale.
+  const age = createMemo(() => {
+    const live = props.live();
+    const seconds = now() - live.fetchedAt;
+    return live.fetchedAt === 0 || (live.status === "live" && seconds < STALE)
+      ? undefined
+      : ago(seconds);
+  });
 
   return (
     <div ref={setRoot} class="explore" data-panel={route().page === "map" ? "closed" : "open"}>
       <aside class="side">
-        <PlanBar hash={hash()} city={props.city.id} stops={stopsReady} />
-        <p class={`live-status ${props.live().status}`} role="status" aria-live="polite">
-          <span class="live-dot" aria-hidden="true" />
-          {status()}
-        </p>
+        <PlanBar hash={hash()} city={props.city.id} stops={stopsReady}>
+          <p
+            class={`live-status ${props.live().status}`}
+            role="status"
+            aria-label={status()}
+            title={status()}
+          >
+            <span class="live-dot" aria-hidden="true" />
+            <VehicleIcon />
+            <span aria-hidden="true">
+              {props.live().status === "connecting" ? "…" : props.live().vehicles.length}
+            </span>
+            <Show when={age()}>
+              {(text) => (
+                <span class="live-age" aria-hidden="true">
+                  {text()}
+                </span>
+              )}
+            </Show>
+          </p>
+        </PlanBar>
         <section ref={setPanel} class="panel" aria-label="Details">
           <Show when={route().page !== "map"}>
             <button
@@ -264,8 +292,8 @@ export const ExploreView = (props: {
                   />
                   <p>Tap a vehicle or a stop on the map for its details.</p>
                   <p class="muted small">
-                    Long-press (or right-click) anywhere to save a place or an interchange area
-                    there.
+                    Long-press (or right-click) anywhere to plan a trip from or to there, or (More)
+                    to save a place or an interchange area.
                   </p>
                   <p class="muted small">
                     Trams are blue, buses grey; arrows point the way they're heading.

@@ -13,6 +13,7 @@ import {
   Show,
   Switch,
 } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { createEffectMemo } from "../../effect-solid.ts";
 import { navigate, type Place, route } from "../../route.ts";
 import { kindIcon, useCity } from "../../user.ts";
@@ -252,6 +253,8 @@ export const PlanBar = (props: {
   hash: string;
   city: CityId;
   stops: Accessor<StopsDto | undefined>;
+  /** Beside the fields: the live status. */
+  children?: JSX.Element;
 }) => {
   const records = useCity(() => props.city);
   const resolve = resolver(() => records().places, props.stops);
@@ -319,6 +322,7 @@ export const PlanBar = (props: {
       >
         ⇅
       </button>
+      {props.children}
     </div>
   );
 };

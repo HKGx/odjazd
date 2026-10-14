@@ -631,8 +631,15 @@ export class LiveMap {
       { padding: { top: 40, left: 40, right: 40, bottom: 40 + this.bottomInset } },
     );
     if (camera === undefined) return;
-    // The catalog box includes outlying stops: frame the core a bit closer.
-    this.map.flyTo({ ...camera, zoom: Math.max((camera.zoom ?? 11) + 1, 11), duration: 1800 });
+    // The catalog box includes outlying stops: frame the core a bit closer. The box's own
+    // centre with the padding passed along: the camera's centre has the padding baked in at
+    // its zoom, so zooming it further would push the city up behind the plan bar.
+    this.map.flyTo({
+      center: [(bounds.west + bounds.east) / 2, (bounds.south + bounds.north) / 2],
+      zoom: Math.max((camera.zoom ?? 11) + 1, 11),
+      padding: { top: 0, left: 0, right: 0, bottom: this.bottomInset },
+      duration: 1800,
+    });
   }
 
   /** The user's saved areas and places (drawn under transit). */

@@ -202,6 +202,8 @@ nav.dock {
   .dock-city select {
     appearance: none;
     field-sizing: content;
+    /* Room for the longer names, so switching cities doesn't resize the dock. */
+    min-width: 6.6em;
     height: 44px;
     min-height: 0;
     padding: 0 26px 0 14px;
@@ -961,13 +963,25 @@ a.line-badge {
 }
 
 .live-status {
+  grid-column: 1 / -1;
+  justify-self: start;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin: 0;
-  padding: 2px 14px 8px;
+  padding: 2px 2px 4px;
   font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
+}
+
+.live-status .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.live-age {
+  color: var(--warning);
 }
 
 .live-dot {
@@ -1162,10 +1176,13 @@ button.small {
     border-radius: 999px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   }
+  /* A small chip under the swap button, over the map's top-right corner. */
   .live-status {
-    align-self: flex-start;
-    margin: 0 10px;
-    padding: 3px 10px;
+    position: absolute;
+    top: calc(100% + 2px);
+    right: 6px;
+    height: 26px;
+    padding: 0 9px;
     border-radius: 999px;
     background: var(--surface-1);
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14);

@@ -80,3 +80,12 @@ export const FinishIcon = () => (
     <path d="M6 21V4M6 4h11l-2.5 4L17 12H6" />
   </Icon>
 );
+
+/** A vehicle on the move: buses and trams on the map. */
+export const VehicleIcon = () => (
+  <Icon>
+    <rect x="5" y="3" width="14" height="15" rx="3" />
+    <path d="M5 11h14M8 21l1.5-3M16 21l-1.5-3" />
+    <path d="M9 14.5h.01M15 14.5h.01" stroke-width="2.6" />
+  </Icon>
+);

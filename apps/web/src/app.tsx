@@ -13,6 +13,7 @@ import {
   onCleanup,
   Show,
   Switch,
+  untrack,
 } from "solid-js";
 import { type JSX, Portal } from "@solidjs/web";
 import { createEffectMemo, createEffectStream } from "./effect-solid.ts";
@@ -177,7 +178,8 @@ const City = (props: { city: CitySummary; cities: CityList; status: HTMLElement 
   createEffect(
     () => props.city.id,
     (_city, previous) => {
-      if (previous !== undefined && onMap(route()) && route().page !== "map") {
+      const here = untrack(route);
+      if (previous !== undefined && onMap(here) && here.page !== "map") {
         navigate({ page: "map" });
       }
     },
