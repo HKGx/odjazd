@@ -37,6 +37,9 @@ const parseTable = (file: string, bytes: Uint8Array): Effect.Effect<Table, GtfsP
         bom: true,
         skip_empty_lines: true,
         relax_column_count: true,
+        // Gdańsk writes `Schronisko dla zwierząt "Promyk" 01` unquoted: a quote
+        // mid-field is text, as most GTFS readers take it.
+        relax_quotes: true,
       });
       const header = (records.shift() ?? []).map((name) => name.trim());
       const columns = new Map(header.map((name, index) => [name, index]));

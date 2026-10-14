@@ -49,7 +49,7 @@ const base: Record<string, string> = {
   "stops.txt": csv(
     "﻿stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station",
     "S1,One,51.77,19.45,0,",
-    "S2,Two,51.78,19.46,0,",
+    `S2,Two "B" 01,51.78,19.46,0,`, // bare quotes mid-field, as Gdańsk writes them
     `S3,"Three, Main",51.79,19.47,,`,
     "ST,Station,51.77,19.45,1,",
   ),
@@ -180,6 +180,7 @@ describe("compileGtfs", () => {
     Effect.gen(function* () {
       const { timetable } = yield* compile();
       expect(timetable.stops.feedIds).toEqual(["S1", "S2", "S3"]);
+      expect(timetable.stops.names[1]).toBe('Two "B" 01');
       expect(timetable.stops.names[2]).toBe("Three, Main");
       expect(timetable.stops.lat[1]).toBe(51.78);
     }),
