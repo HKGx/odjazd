@@ -32,6 +32,7 @@ import { ago } from "./parts.tsx";
 import { PlanBar } from "./search.tsx";
 import { Balloon } from "./balloon.tsx";
 import { draftOf, setDraft } from "./endpoints.ts";
+import { dragSheet } from "./sheet.ts";
 import { StopPanel } from "./stop.tsx";
 import { VehiclePanel } from "./vehicle.tsx";
 
@@ -118,27 +119,32 @@ export const ExploreView = (props: {
     };
   });
 
-  // On narrow screens the panel is a sheet over the map: tell the map and the controls.
+  // On narrow screens the panel is a sheet over the map that you drag: tell the map and the
+  // controls how much it covers.
   const [panel, setPanel] = createSignal<HTMLElement>();
   const [root, setRoot] = createSignal<HTMLElement>();
+  const [sheet, setSheet] = createSignal<ReturnType<typeof dragSheet>>();
   createEffect(
     () => [panel(), root(), map()] as const,
     ([element, container, m]) => {
       if (element === undefined || container === undefined) return;
-      const narrow = window.matchMedia("(max-width: 760px)");
-      const update = () => {
-        const inset = narrow.matches ? element.offsetHeight : 0;
-        container.style.setProperty("--sheet", `${inset}px`);
-        m?.setBottomInset(inset);
-      };
-      const observer = new ResizeObserver(update);
-      observer.observe(element);
-      narrow.addEventListener("change", update);
-      update();
-      return () => {
-        observer.disconnect();
-        narrow.removeEventListener("change", update);
-      };
+      const made = dragSheet({
+        sheet: element,
+        container,
+        top: () => container.querySelector<HTMLElement>(".plan-bar"),
+        dock: () => document.querySelector<HTMLElement>("nav.dock"),
+        onSlide: (visible) => container.style.setProperty("--sheet", `${visible}px`),
+        onInset: (visible) => m?.setBottomInset(visible),
+      });
+      setSheet(made);
+      return () => made.dispose();
+    },
+  );
+  // Opening something while the sheet is down lifts it enough to show it.
+  createEffect(
+    () => [route(), sheet()] as const,
+    ([, made], previous) => {
+      if (previous !== undefined) made?.reveal();
     },
   );
 
@@ -241,6 +247,12 @@ export const ExploreView = (props: {
           </p>
         </PlanBar>
         <section ref={setPanel} class="panel" aria-label="Details">
+          <button
+            type="button"
+            class="grip"
+            aria-label="Resize the details"
+            onClick={() => sheet()?.toggle()}
+          />
           <Show when={route().page !== "map"}>
             <button
               type="button"

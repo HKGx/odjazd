@@ -1063,6 +1063,11 @@ a.line-badge {
   padding: 14px 16px 24px;
 }
 
+/* The sheet's handle, phones only. */
+.grip {
+  display: none;
+}
+
 .panel-body h2 {
   font-size: 1.15rem;
   margin: 0 32px 6px 0;
@@ -1188,7 +1193,8 @@ button.small {
   }
   .arrived {
     top: auto;
-    bottom: calc(var(--sheet, 0px) + 12px);
+    bottom: 12px;
+    translate: 0 calc(-1 * var(--sheet, 0px));
   }
   .side {
     position: absolute;
@@ -1233,17 +1239,61 @@ button.small {
     bottom: 0;
     flex: none;
     padding-top: 14px;
-    /* One height whatever it shows: opening a stop or a trip never resizes the sheet. */
+    /* One height whatever it shows: opening a stop or a trip never resizes the sheet. This is
+       its "half" height; dragging it (sheet.ts) slides it by a transform, never a resize. */
     height: 46dvh;
-    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+    padding-bottom: calc(68px + env(safe-area-inset-bottom) + var(--hidden, 0px));
+    overscroll-behavior: contain;
+    transition: translate 280ms cubic-bezier(0.2, 0.9, 0.3, 1);
     background: var(--surface-1);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.16);
   }
-  .maplibregl-ctrl-bottom-right {
-    bottom: calc(var(--sheet, 0px) + 4px);
+  .panel.dragging {
+    transition: none;
   }
-  /* The sheet's handle: it sits in the padding, so titles never meet the rounded corner. */
+  /* The handle: a sticky strip at the top, so it stays put while the content scrolls. */
+  .grip {
+    position: sticky;
+    z-index: 2;
+    top: -14px;
+    display: block;
+    width: 100%;
+    height: 22px;
+    min-height: 0;
+    margin: -14px 0 -8px;
+    padding: 0;
+    border: 0;
+    border-radius: 16px 16px 0 0;
+    background: var(--surface-1);
+    cursor: grab;
+    touch-action: none;
+  }
+  .grip::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    translate: -50% 0;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--axis);
+  }
+  .grip:hover {
+    background: var(--surface-1);
+  }
+  /* The controls ride on the sheet's top edge: moved by a transform, like the sheet. */
+  .maplibregl-ctrl-bottom-right {
+    bottom: 4px;
+    translate: 0 calc(-1 * var(--sheet, 0px));
+    transition: opacity 150ms;
+  }
+  /* With the sheet all the way up, the map's controls have no map left to sit on. */
+  .explore:has(.panel[data-snap="full"]) .maplibregl-ctrl-bottom-right {
+    opacity: 0;
+    pointer-events: none;
+  }
   /* Pinch zooms on touch screens; keep only locate and attribution. */
   .maplibregl-ctrl-group:has(.maplibregl-ctrl-zoom-in) {
     display: none;
