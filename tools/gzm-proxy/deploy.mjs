@@ -29,7 +29,7 @@ form.set(
     { type: "application/json" },
   ),
 );
-form.set("worker.js", new Blob([source], { type: "application/javascript+module" }));
+form.set("worker.js", new Blob([source], { type: "application/javascript+module" }), "worker.js");
 
 const upload = await fetch(`${api}/workers/scripts/${name}`, {
   method: "PUT",
