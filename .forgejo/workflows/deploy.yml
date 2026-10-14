@@ -2,6 +2,11 @@ name: Build, push and deploy
 
 # Typecheck, lint and tests run inside the image build (the Dockerfile's `check`
 # stage), so a commit that fails them never produces an image to deploy.
+#
+# Plain docker and git, no third-party actions. Needs on the runner:
+# - a label matching `runs-on`;
+# - Docker access for job containers (e.g. `container.docker_host: automount`
+#   in the forgejo-runner config), since the image is built with the host's daemon.
 
 on:
   push:
@@ -11,59 +16,63 @@ on:
 
 jobs:
   build-and-push:
-    # Must match a label of your forgejo-runner. Its job containers need Docker
-    # access (e.g. `container.docker_host: automount` in the runner config) for buildx.
     runs-on: docker
+    container:
+      # Alpine with the Docker CLI, buildx and git.
+      image: docker:cli
 
     steps:
-      - uses: https://data.forgejo.org/actions/checkout@v4
-
-      - name: Registry host
-        # The instance's own container registry, e.g. git.example.com
-        run: echo "REGISTRY=${GITHUB_SERVER_URL#*://}" >> "$GITHUB_ENV"
-
-      # Only needed when the runner isn't arm64 itself; harmless when it is.
-      - uses: https://github.com/docker/setup-qemu-action@v3
-
-      - uses: https://github.com/docker/setup-buildx-action@v3
-
-      - name: Image tags
-        id: meta
-        uses: https://github.com/docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
-          tags: |
-            type=sha,format=long
-            latest
+      - name: Check out
+        run: |
+          host="${FORGEJO_SERVER_URL#*://}"
+          git init --quiet .
+          git fetch --quiet --depth 1 \
+            "https://oauth2:${FORGEJO_TOKEN}@${host}/${FORGEJO_REPOSITORY}.git" "${FORGEJO_SHA}"
+          git checkout --quiet FETCH_HEAD
 
       - name: Log in to the registry
-        uses: https://github.com/docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.REGISTRY_USER }}
-          # An access token with package write permission.
-          password: ${{ secrets.REGISTRY_TOKEN }}
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          echo "$REGISTRY_TOKEN" | docker login "${FORGEJO_SERVER_URL#*://}" \
+            --username "$REGISTRY_USER" --password-stdin
 
       - name: Build and push
-        uses: https://github.com/docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/arm64
-          # Layer cache in the registry; image-manifest keeps it acceptable to
-          # registries that reject buildx's default cache index.
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+        run: |
+          image="${FORGEJO_SERVER_URL#*://}/$(echo "$FORGEJO_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          # A builder that can export its layer cache to the registry.
+          docker buildx create --name odjazd --driver docker-container --use >/dev/null
+          # Emulate arm64 only when the runner isn't arm64 itself.
+          if [ "$(uname -m)" != aarch64 ]; then
+            docker run --rm --privileged tonistiigi/binfmt --install arm64
+          fi
+          docker buildx build . \
+            --platform linux/arm64 \
+            --tag "$image:$FORGEJO_SHA" \
+            --tag "$image:latest" \
+            --label "org.opencontainers.image.source=$FORGEJO_SERVER_URL/$FORGEJO_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$FORGEJO_SHA" \
+            --cache-from "type=registry,ref=$image:buildcache" \
+            --cache-to "type=registry,ref=$image:buildcache,mode=max,image-manifest=true,oci-mediatypes=true" \
+            --push
+
+      - name: Clean up the builder
+        if: always()
+        run: docker buildx rm odjazd || true
 
   deploy:
     runs-on: docker
     needs: build-and-push
+    container:
+      image: docker:cli
 
     steps:
       - name: Trigger the Coolify deployment
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        # BusyBox wget: no curl in the image.
         run: |
-          curl --fail --silent --show-error --request POST '${{ secrets.COOLIFY_WEBHOOK }}' \
-            --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}'
+          wget --quiet --output-document=- --post-data='' \
+            --header="Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_WEBHOOK"
