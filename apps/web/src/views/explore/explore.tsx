@@ -77,6 +77,12 @@ export const ExploreView = (props: {
   // Going anywhere (a stop tapped, a panel closed) leaves the balloon behind.
   createEffect(route, () => setBalloon(undefined));
 
+  // Leaving a stop, line or vehicle looked at during a trip goes back to that trip.
+  const backToPlan = () => {
+    const { from, to } = draftOf(props.city.id);
+    navigate(to === undefined ? { page: "map" } : { page: "trip", from, to });
+  };
+
   // MapLibre is ~1 MB: load it only when the map is shown.
   createEffect(container, (element) => {
     if (element === undefined) return;
@@ -96,7 +102,11 @@ export const ExploreView = (props: {
         onBackground: () => {
           // A tap beside an open balloon only closes it.
           if (untrack(balloon) !== undefined) return setBalloon(undefined);
-          if (route().page !== "map" && mapPick.stop === undefined) navigate({ page: "map" });
+          const here = route().page;
+          // A trip, or a route being edited, is work in progress: a stray tap keeps it.
+          if (here === "map" || here === "trip" || here === "route" || mapPick.stop !== undefined)
+            return;
+          backToPlan();
         },
         onCity: (id) => {
           const city = props.cities.find((c) => c.id === id);
@@ -258,8 +268,10 @@ export const ExploreView = (props: {
               aria-label="Close"
               onClick={() => {
                 // Closing a trip lets go of its destination; the start stays.
-                if (route().page === "trip") setDraft(props.city.id, { to: undefined });
-                navigate({ page: "map" });
+                if (route().page === "trip") {
+                  setDraft(props.city.id, { to: undefined });
+                  navigate({ page: "map" });
+                } else backToPlan();
               }}
             >
               ✕

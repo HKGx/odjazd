@@ -170,18 +170,23 @@ export const dragSheet = (options: {
     const touch = event.touches[0];
     if (touch !== undefined && move(touch.clientY)) event.preventDefault();
   };
-  // Mice drag by the grip only; their wheel scrolls the content.
-  const onPointerDown = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse" || event.button !== 0) return;
-    if (event.clientY - sheet.getBoundingClientRect().top >= GRIP) return;
-    begin(event.clientY);
-    sheet.setPointerCapture(event.pointerId);
-  };
+  // Mice drag by the grip only; their wheel scrolls the content. Followed on the window, not
+  // captured: a plain click still lands on the button under it.
   const onPointerMove = (event: PointerEvent) => {
     if (event.pointerType === "mouse") move(event.clientY);
   };
   const onPointerUp = (event: PointerEvent) => {
-    if (event.pointerType === "mouse") end();
+    if (event.pointerType !== "mouse") return;
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    end();
+  };
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse" || event.button !== 0 || !narrow.matches) return;
+    if (event.clientY - sheet.getBoundingClientRect().top >= GRIP) return;
+    begin(event.clientY);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
   };
   // A drag that ends over a button isn't a press of it.
   const onClick = (event: MouseEvent) => {
@@ -195,8 +200,6 @@ export const dragSheet = (options: {
   sheet.addEventListener("touchend", end);
   sheet.addEventListener("touchcancel", end);
   sheet.addEventListener("pointerdown", onPointerDown);
-  sheet.addEventListener("pointermove", onPointerMove);
-  sheet.addEventListener("pointerup", onPointerUp);
   sheet.addEventListener("click", onClick, true);
   const observer = new ResizeObserver(setUp);
   observer.observe(container);
@@ -216,8 +219,8 @@ export const dragSheet = (options: {
       sheet.removeEventListener("touchend", end);
       sheet.removeEventListener("touchcancel", end);
       sheet.removeEventListener("pointerdown", onPointerDown);
-      sheet.removeEventListener("pointermove", onPointerMove);
-      sheet.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
       sheet.removeEventListener("click", onClick, true);
     },
   };
