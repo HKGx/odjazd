@@ -106,18 +106,49 @@ header {
   pointer-events: none;
 }
 
+/* Notices look like the dock: a small pill with a spinner or a dot. */
 .toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   max-width: min(560px, calc(100% - 32px));
-  padding: 8px 12px;
+  padding: 7px 14px 7px 11px;
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--warning);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
-  font-size: 0.9rem;
+  border-radius: 999px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.22);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: auto;
   animation: toast-in 160ms ease-out;
+}
+
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.toast-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
 }
 
 @keyframes toast-in {
@@ -193,6 +224,13 @@ nav.dock {
   }
   header > :not(.status-slot) {
     display: none;
+  }
+  /* Notices sit just above the dock, clear of the trip fields. */
+  .status-slot {
+    position: fixed;
+    z-index: 30;
+    top: auto;
+    bottom: calc(76px + env(safe-area-inset-bottom));
   }
   .dock-city {
     position: relative;

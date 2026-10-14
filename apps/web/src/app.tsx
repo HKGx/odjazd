@@ -146,6 +146,20 @@ const LoadingText = (props: { city: CitySummary }) => (
   </Show>
 );
 
+/** The same, in a few words for the notice over the map. */
+const LoadingNote = (props: { city: CitySummary }) => (
+  <Show
+    when={props.city.downloadBytes}
+    fallback={<>The server is preparing {props.city.name["en"]}…</>}
+  >
+    {(bytes) => (
+      <>
+        Loading {props.city.name["en"]} · {megabytes(bytes())}
+      </>
+    )}
+  </Show>
+);
+
 /** Notices float under the header, over the page: showing or hiding one moves nothing. */
 const Status = (props: { slot: HTMLElement | undefined; children: JSX.Element }) => (
   <Show when={props.slot}>{(slot) => <Portal mount={slot()}>{props.children}</Portal>}</Show>
@@ -196,12 +210,14 @@ const City = (props: { city: CitySummary; cities: CityList; status: HTMLElement 
       <Status slot={props.status}>
         <Show when={isPending(() => loaded())}>
           <p class="toast" role="status">
-            <LoadingText city={props.city} />
+            <span class="spinner" aria-hidden="true" />
+            <LoadingNote city={props.city} />
           </p>
         </Show>
         <Show when={loaded().source === "cache"}>
           <p class="toast" role="status">
-            <span aria-hidden="true">●</span> Offline: using the timetable saved on this device.
+            <span class="toast-dot" aria-hidden="true" />
+            Offline: using the timetable saved on this device
           </p>
         </Show>
       </Status>
