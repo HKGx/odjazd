@@ -95,6 +95,25 @@ const Failure = (props: { error: unknown; reset: () => void }) => (
   </div>
 );
 
+/** No download size means nothing is published yet: a new server is still compiling it. */
+const LoadingText = (props: { city: CitySummary }) => (
+  <Show
+    when={props.city.downloadBytes}
+    fallback={
+      <>
+        The server is preparing the {props.city.name["en"]} timetable for the first time. It opens
+        here by itself when ready, usually within a minute or two…
+      </>
+    }
+  >
+    {(bytes) => (
+      <>
+        Loading the {props.city.name["en"]} timetable ({megabytes(bytes())})…
+      </>
+    )}
+  </Show>
+);
+
 const City = (props: { city: CitySummary; cities: CityList }) => {
   const loaded = createEffectMemo(() => {
     const city = props.city.id;
@@ -131,22 +150,14 @@ const City = (props: { city: CitySummary; cities: CityList }) => {
     <Loading
       fallback={
         <p class="loading">
-          Loading the {props.city.name["en"]} timetable
-          {props.city.downloadBytes === undefined
-            ? ""
-            : ` (${megabytes(props.city.downloadBytes)})`}
-          …
+          <LoadingText city={props.city} />
         </p>
       }
     >
       {/* Switching city: the old network stays on screen until the new one is in. */}
       <Show when={isPending(() => loaded())}>
         <p class="notice" role="status">
-          Loading the {props.city.name["en"]} timetable
-          {props.city.downloadBytes === undefined
-            ? ""
-            : ` (${megabytes(props.city.downloadBytes)})`}
-          …
+          <LoadingText city={props.city} />
         </p>
       </Show>
       <Show when={loaded().source === "cache"}>

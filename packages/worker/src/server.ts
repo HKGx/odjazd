@@ -33,16 +33,33 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
       const lives = new Map<CityId, SubscriptionRef.SubscriptionRef<LiveDto>>();
 
       const manifestFor = Effect.fn("Timetable.manifest")(function* (city: CityId) {
-        // A 404 is definitive; anything else (offline, server down) falls back to the device copy.
-        const fresh = yield* api.cities.manifest({ params: { city } }).pipe(
+        // A 404 is definitive; a 503 means the server is still compiling the city's first
+        // timetable (wait for it, unless the device has one); anything else (offline, server
+        // down) falls back to the device copy.
+        const ask = api.cities.manifest({ params: { city } }).pipe(
           Effect.map((manifest) => ({ _tag: "Found" as const, manifest })),
-          Effect.catchTag("NotFound", () => Effect.succeed({ _tag: "Missing" as const })),
+          Effect.catchTags({
+            NotFound: () => Effect.succeed({ _tag: "Missing" as const }),
+            ServiceUnavailable: () => Effect.succeed({ _tag: "Preparing" as const }),
+          }),
           Effect.catch((error) =>
             Effect.logWarning("manifest: network unavailable, trying the device copy", error).pipe(
               Effect.as({ _tag: "Offline" as const }),
             ),
           ),
         );
+        let fresh = yield* ask;
+        for (let attempt = 0; fresh._tag === "Preparing"; attempt++) {
+          if (Option.isSome(yield* store.manifest(city))) {
+            fresh = { _tag: "Offline" as const };
+            break;
+          }
+          if (attempt >= 120) {
+            return yield* unavailable("The server is still preparing this city; try again later.");
+          }
+          yield* Effect.sleep("5 seconds");
+          fresh = yield* ask;
+        }
         if (fresh._tag === "Missing") {
           return yield* unavailable(`No timetable is published for ${city} yet.`);
         }

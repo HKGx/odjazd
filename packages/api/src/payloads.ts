@@ -67,6 +67,8 @@ export const CityManifest = Schema.Struct({
   compiledAt: Schema.Int,
   /** Hash of the raw GTFS archive it was compiled from. */
   sourceHash: ContentHash,
+  /** Epoch seconds the server last checked the feed for changes. */
+  checkedAt: Schema.optionalKey(Schema.Int),
   attribution: Schema.Array(License),
 });
 export type CityManifest = typeof CityManifest.Type;

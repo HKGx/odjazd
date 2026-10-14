@@ -44,14 +44,14 @@ export const citiesHandlers = (entries: ReadonlyArray<CatalogEntry>) =>
           }),
         )
         .handle("manifest", ({ params }) =>
-          publisher.manifest(params.city).pipe(
-            Effect.flatMap(
-              Option.match({
-                onNone: () => Effect.fail(HttpApiError.NotFound.make({})),
-                onSome: Effect.succeed,
-              }),
-            ),
-          ),
+          Effect.gen(function* () {
+            const manifest = yield* publisher.manifest(params.city);
+            if (Option.isSome(manifest)) return manifest.value;
+            // A city we serve but haven't compiled yet (a fresh server): ask to come back.
+            return yield* entries.some((entry) => entry.id === params.city)
+              ? HttpApiError.ServiceUnavailable.make({})
+              : HttpApiError.NotFound.make({});
+          }),
         );
     }),
   );

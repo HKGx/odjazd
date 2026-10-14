@@ -16,7 +16,8 @@ export class CitiesGroup extends HttpApiGroup.make("cities").add(
   HttpApiEndpoint.get("manifest", "/cities/:city/manifest", {
     params: { city: CityId },
     success: CityManifest,
-    error: HttpApiError.NotFound,
+    // 503: the city's first timetable is still being compiled; try again shortly.
+    error: [HttpApiError.NotFound, HttpApiError.ServiceUnavailable],
   }),
 ) {}
 
