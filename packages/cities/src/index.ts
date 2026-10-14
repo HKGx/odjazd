@@ -15,6 +15,7 @@ import { plRybnik } from "./entries/pl-rybnik.ts";
 import { plRzeszow } from "./entries/pl-rzeszow.ts";
 import { plSiedlce } from "./entries/pl-siedlce.ts";
 import { plSzczecin } from "./entries/pl-szczecin.ts";
+import { plWalbrzych } from "./entries/pl-walbrzych.ts";
 import { plWarszawa } from "./entries/pl-warszawa.ts";
 import { plWroclaw } from "./entries/pl-wroclaw.ts";
 import { plZielonaGora } from "./entries/pl-zielona-gora.ts";
@@ -43,6 +44,7 @@ export const entries: ReadonlyArray<(typeof Catalog.Encoded)[number]> = [
   plRybnik,
   plZielonaGora,
   plGorzowWielkopolski,
+  plWalbrzych,
 ];
 
 /** The validated catalog. Fails with a `SchemaError` describing every invalid field. */
