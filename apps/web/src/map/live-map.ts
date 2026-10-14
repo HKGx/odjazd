@@ -52,6 +52,14 @@ export interface Pin {
   readonly radiusMeters?: number | undefined;
 }
 
+/** A route being edited: its areas in order, numbered on the map. */
+export interface DraftShape {
+  readonly areas: ReadonlyArray<{
+    readonly center: { readonly lat: number; readonly lon: number };
+    readonly radiusMeters: number;
+  }>;
+}
+
 export interface JourneyShape {
   readonly legs: ReadonlyArray<{
     readonly kind: "walk" | "ride";
@@ -131,6 +139,7 @@ export class LiveMap {
   private user: UserLayers = { areas: [], places: [] };
   private pin: Pin | undefined;
   private journey: JourneyShape | undefined;
+  private draft: DraftShape | undefined;
   private bottomInset = 0;
   /** Last point we centered, until the user moves the map themselves. */
   private target: { lat: number; lon: number; zoom: number | undefined } | undefined;
@@ -257,6 +266,47 @@ export class LiveMap {
         "text-optional": true,
       },
       paint: { "text-color": accent, "text-halo-color": surface, "text-halo-width": 1.5 },
+    });
+    map.addSource("draft", { type: "geojson", data: empty });
+    map.addLayer({
+      id: "draft-areas",
+      type: "fill",
+      source: "draft",
+      filter: ["==", ["geometry-type"], "Polygon"],
+      paint: { "fill-color": accent, "fill-opacity": 0.2 },
+    });
+    map.addLayer({
+      id: "draft-links",
+      type: "line",
+      source: "draft",
+      filter: ["==", ["geometry-type"], "LineString"],
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: { "line-color": accent, "line-width": 3, "line-dasharray": [1, 1.5] },
+    });
+    map.addLayer({
+      id: "draft-numbers",
+      type: "circle",
+      source: "draft",
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-radius": 10,
+        "circle-color": accent,
+        "circle-stroke-color": surface,
+        "circle-stroke-width": 2,
+      },
+    });
+    map.addLayer({
+      id: "draft-number-labels",
+      type: "symbol",
+      source: "draft",
+      filter: ["==", ["geometry-type"], "Point"],
+      layout: {
+        "text-field": ["get", "n"],
+        "text-font": font,
+        "text-size": 11,
+        "text-allow-overlap": true,
+      },
+      paint: { "text-color": surface },
     });
     map.addSource("route", { type: "geojson", data: empty });
     map.addSource("route-stops", { type: "geojson", data: empty });
@@ -438,6 +488,7 @@ export class LiveMap {
     this.ready = true;
     this.drawJourney();
     this.drawUser();
+    this.drawDraft();
     this.drawStops();
     this.drawRoute();
     this.drawVehicles(performance.now());
@@ -493,6 +544,44 @@ export class LiveMap {
               },
             ],
     });
+  }
+
+  /** The route being edited; `undefined` clears it. */
+  setDraft(draft: DraftShape | undefined) {
+    this.draft = draft;
+    this.drawDraft();
+  }
+
+  private drawDraft() {
+    if (!this.ready) return;
+    const areas = this.draft?.areas ?? [];
+    const features = [
+      ...areas.map((area) => ({
+        type: "Feature" as const,
+        geometry: circle(area.center.lat, area.center.lon, area.radiusMeters),
+        properties: {},
+      })),
+      ...(areas.length < 2
+        ? []
+        : [
+            {
+              type: "Feature" as const,
+              geometry: {
+                type: "LineString" as const,
+                coordinates: areas.map((area) => [area.center.lon, area.center.lat]),
+              },
+              properties: {},
+            },
+          ]),
+      ...areas.map((area, i) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [area.center.lon, area.center.lat] },
+        properties: { n: String(i + 1) },
+      })),
+    ];
+    this.map
+      .getSource<GeoJSONSource>("draft")
+      ?.setData({ type: "FeatureCollection", features } as GeoJSON.FeatureCollection);
   }
 
   /** A planned journey, drawn over the map; `undefined` clears it. */

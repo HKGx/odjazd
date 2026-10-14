@@ -20,7 +20,9 @@ import { now } from "../../now.ts";
 import { href, navigate, route } from "../../route.ts";
 import { kindIcon, useCity } from "../../user.ts";
 import { LinePanel } from "./line.tsx";
+import { mapPick } from "../../map/pick.ts";
 import { PointPanel } from "./point.tsx";
+import { RouteEditorPanel } from "./route-editor.tsx";
 import { TripPanel } from "./trip.tsx";
 import { ago } from "./parts.tsx";
 import { SearchBox } from "./search.tsx";
@@ -51,11 +53,15 @@ export const ExploreView = (props: {
         container: element,
         center: untrack(() => props.city.center),
         dark: untrack(props.dark),
-        onStop: (group) => navigate({ page: "stop", group }),
+        onStop: (group) =>
+          mapPick.stop === undefined ? navigate({ page: "stop", group }) : mapPick.stop(group),
         onVehicle: (id) => navigate({ page: "vehicle", id }),
-        onPoint: (lat, lon) => navigate({ page: "point", lat, lon }),
+        onPoint: (lat, lon) =>
+          mapPick.point === undefined
+            ? navigate({ page: "point", lat, lon })
+            : mapPick.point(lat, lon),
         onBackground: () => {
-          if (route().page !== "map") navigate({ page: "map" });
+          if (route().page !== "map" && mapPick.stop === undefined) navigate({ page: "map" });
         },
       });
       setMap(instance);
@@ -282,6 +288,23 @@ export const ExploreView = (props: {
                     to={r().to}
                     stops={stopsReady}
                     live={props.live}
+                    map={map}
+                  />
+                )}
+              </Match>
+              <Match
+                when={(() => {
+                  const r = route();
+                  return r.page === "route" ? r : undefined;
+                })()}
+              >
+                {(r) => (
+                  <RouteEditorPanel
+                    hash={hash()}
+                    city={props.city.id}
+                    timeZone={props.loaded.timeZone}
+                    id={r().id}
+                    stops={stopsReady}
                     map={map}
                   />
                 )}

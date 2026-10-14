@@ -50,6 +50,8 @@ export type Route =
   | { readonly page: "vehicle"; readonly id: string }
   | { readonly page: "point"; readonly lat: number; readonly lon: number }
   | { readonly page: "trip"; readonly from: Place | undefined; readonly to: Place | undefined }
+  /** A route in the map editor; `undefined` for a new one. */
+  | { readonly page: "route"; readonly id: string | undefined }
   | { readonly page: "compare" }
   | { readonly page: "board"; readonly area: string | undefined }
   | { readonly page: "places" }
@@ -62,7 +64,8 @@ export const onMap = (route: Route): boolean =>
   route.page === "line" ||
   route.page === "vehicle" ||
   route.page === "point" ||
-  route.page === "trip";
+  route.page === "trip" ||
+  route.page === "route";
 
 const parse = (hash: string): Route => {
   const [page, arg, extra] = hash
@@ -91,6 +94,8 @@ const parse = (hash: string): Route => {
     }
     case "board":
       return { page: "board", area: present ? arg : undefined };
+    case "route":
+      return { page: "route", id: present && arg !== "new" ? arg : undefined };
     case "compare":
     case "places":
     case "settings":
@@ -116,6 +121,8 @@ export const href = (route: Route): string => {
       return `#/trip/${part(placeText(route.from))}/${part(placeText(route.to))}`;
     case "point":
       return `#/at/${route.lat.toFixed(5)},${route.lon.toFixed(5)}`;
+    case "route":
+      return `#/route/${route.id === undefined ? "new" : part(route.id)}`;
     case "board":
       return `#/board${route.area === undefined ? "" : `/${part(route.area)}`}`;
     default:

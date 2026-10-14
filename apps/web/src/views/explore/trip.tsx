@@ -28,6 +28,8 @@ import type { LiveMap } from "../../map/live-map.ts";
 import { now } from "../../now.ts";
 import { href, navigate, type Place } from "../../route.ts";
 import { kindIcon, preferences, useCity } from "../../user.ts";
+import { fromJourney } from "../../route-draft.ts";
+import { editDraft } from "./handoff.ts";
 import { LineBadge, LiveTag } from "./parts.tsx";
 
 type Ride = Extract<PlanLegDto, { _tag: "Ride" }>;
@@ -40,7 +42,7 @@ interface Resolved {
 }
 
 /** Name of the closest stop group, for labelling a map point. */
-const nearestStop = (stops: StopsDto | undefined, lat: number, lon: number) => {
+export const nearestStop = (stops: StopsDto | undefined, lat: number, lon: number) => {
   if (stops === undefined) return undefined;
   let best: string | undefined;
   let bestD = 0.004 ** 2;
@@ -161,7 +163,7 @@ const EndpointField = (props: {
   );
 };
 
-const LegChips = (props: { journey: JourneyDto }) => (
+export const LegChips = (props: { journey: JourneyDto }) => (
   <span class="chips">
     <For each={props.journey.legs}>
       {(leg, i) => (
@@ -671,6 +673,48 @@ export const TripPanel = (props: {
                             <span>Arrive · {to()?.label}</span>
                           </li>
                         </ol>
+                        <div class="actions journey-actions">
+                          <Show
+                            when={journey.route}
+                            fallback={
+                              <Show when={journey.rides > 0}>
+                                <button
+                                  type="button"
+                                  class="ghost small"
+                                  onClick={() =>
+                                    editDraft(
+                                      fromJourney(
+                                        journey,
+                                        records().areas.map((r) => r.area),
+                                        props.city,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  Save as route…
+                                </button>
+                              </Show>
+                            }
+                          >
+                            {(used) => (
+                              <Show
+                                when={
+                                  records().corridors.find((r) => r.corridor.slug === used().slug)
+                                    ?.id
+                                }
+                              >
+                                {(id) => (
+                                  <a
+                                    class="button ghost small"
+                                    href={href({ page: "route", id: id() })}
+                                  >
+                                    Edit “{used().name}”
+                                  </a>
+                                )}
+                              </Show>
+                            )}
+                          </Show>
+                        </div>
                       </Show>
                     </li>
                   );

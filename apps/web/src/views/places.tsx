@@ -1,10 +1,9 @@
 import type { CitySummary } from "@odjazd/api";
-import { Corridor, InterchangeArea, LineRef, type Mode } from "@odjazd/model";
-import type { AreaRecord, CorridorRecord, Place, PlaceKind } from "@odjazd/user-data";
+import { InterchangeArea } from "@odjazd/model";
+import type { AreaRecord, Place, PlaceKind } from "@odjazd/user-data";
 import { Effect, Schema } from "effect";
-import { createMemo, createSignal, For, Show, untrack } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { href } from "../route.ts";
-import { slugify } from "../slug.ts";
 import { kindIcon, useCity, withStore } from "../user.ts";
 
 const download = (name: string, text: string) => {
@@ -101,220 +100,8 @@ const AreaRow = (props: { record: AreaRecord; usedBy: number }) => {
   );
 };
 
-const parseLines = (text: string): ReadonlyArray<LineRef> | string => {
-  const parts = text
-    .split(/[\s,]+/)
-    .map((part) => part.trim())
-    .filter((part) => part !== "");
-  const refs: Array<LineRef> = [];
-  for (const part of parts) {
-    const ref = Schema.decodeOption(LineRef)(part);
-    if (ref._tag === "None") return `“${part}” isn't a line like tram:10 or bus:58A`;
-    refs.push(ref.value);
-  }
-  return refs;
-};
-
-interface LegDraft {
-  readonly to: string;
-  readonly modes: ReadonlyArray<Mode>;
-  readonly prefer: string;
-  readonly avoid: string;
-}
-
-/** Create or edit a route: a chain of areas with per-leg line rules. */
-const RouteEditor = (props: {
-  city: CitySummary;
-  areas: ReadonlyArray<AreaRecord>;
-  routes: ReadonlyArray<CorridorRecord>;
-  editing: CorridorRecord | undefined;
-  onDone: () => void;
-}) => {
-  // The editor starts from a snapshot; later store changes don't reset the form.
-  const initial = untrack(() => props.editing?.corridor);
-  const firstArea = untrack(() => props.areas[0]?.area.slug ?? "");
-  const secondArea = untrack(() => props.areas[1]?.area.slug ?? "");
-  const [name, setName] = createSignal(initial?.name ?? "");
-  const [start, setStart] = createSignal<string>(initial?.legs[0]?.from ?? firstArea);
-  const [legs, setLegs] = createSignal<ReadonlyArray<LegDraft>>(
-    initial?.legs.map((leg) => ({
-      to: leg.to,
-      modes: leg.allow.modes ?? [],
-      prefer: (leg.prefer ?? []).join(", "),
-      avoid: (leg.avoid ?? []).join(", "),
-    })) ?? [{ to: secondArea, modes: [], prefer: "", avoid: "" }],
-  );
-  const [error, setError] = createSignal<string>();
-
-  const update = (i: number, patch: Partial<LegDraft>) =>
-    setLegs((list) => list.map((leg, j) => (j === i ? { ...leg, ...patch } : leg)));
-
-  const save = () => {
-    const built = [];
-    let from = start();
-    for (const leg of legs()) {
-      const prefer = parseLines(leg.prefer);
-      const avoid = parseLines(leg.avoid);
-      if (typeof prefer === "string") return setError(prefer);
-      if (typeof avoid === "string") return setError(avoid);
-      built.push({
-        from,
-        to: leg.to,
-        allow: leg.modes.length === 0 ? {} : { modes: leg.modes },
-        ...(prefer.length === 0 ? {} : { prefer }),
-        ...(avoid.length === 0 ? {} : { avoid }),
-      });
-      from = leg.to;
-    }
-    const taken = new Set(
-      props.routes.filter((r) => r.id !== props.editing?.id).map((r) => r.corridor.slug),
-    );
-    const corridor = Schema.decodeUnknownExit(Corridor)({
-      slug: initial?.slug ?? slugify(name(), taken),
-      cityId: props.city.id,
-      name: name().trim(),
-      legs: built,
-    });
-    if (corridor._tag === "Failure") {
-      return setError(
-        name().trim() === ""
-          ? "Give the route a name."
-          : "Each hop needs two different areas, continuing from the previous one.",
-      );
-    }
-    setError(undefined);
-    withStore((s) =>
-      s.saveCorridor({
-        _tag: "Corridor",
-        ...(props.editing === undefined ? {} : { id: props.editing.id }),
-        corridor: corridor.value,
-      }),
-    );
-    props.onDone();
-  };
-
-  const AreaSelect = (p: { value: string; onChange: (slug: string) => void; label: string }) => (
-    <select aria-label={p.label} onChange={(e) => p.onChange(e.currentTarget.value)}>
-      <For each={props.areas}>
-        {(r) => (
-          <option value={r.area.slug} selected={r.area.slug === p.value}>
-            {r.area.name}
-          </option>
-        )}
-      </For>
-    </select>
-  );
-
-  return (
-    <form
-      class="card route-editor"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save();
-      }}
-    >
-      <h3>{props.editing === undefined ? "New route" : "Edit route"}</h3>
-      <label class="stack">
-        Name
-        <input value={name()} onInput={(e) => setName(e.currentTarget.value)} required />
-      </label>
-      <label class="stack">
-        Start at
-        <AreaSelect value={start()} onChange={setStart} label="First area" />
-      </label>
-      <ol class="legs-editor">
-        <For each={legs()}>
-          {(leg, i) => (
-            <li>
-              <label class="stack">
-                Then to
-                <AreaSelect
-                  value={leg.to}
-                  onChange={(to) => update(i(), { to })}
-                  label={`Area ${i() + 2}`}
-                />
-              </label>
-              <fieldset class="modes">
-                <legend class="sr-only">Modes</legend>
-                <For each={["tram", "bus"] as const}>
-                  {(mode) => (
-                    <label class="check">
-                      <input
-                        type="checkbox"
-                        checked={leg.modes.length === 0 || leg.modes.includes(mode)}
-                        onChange={(e) => {
-                          const all = leg.modes.length === 0 ? ["tram", "bus"] : leg.modes;
-                          const next = e.currentTarget.checked
-                            ? [...new Set([...all, mode])]
-                            : all.filter((m) => m !== mode);
-                          update(i(), { modes: next.length === 2 ? [] : (next as Array<Mode>) });
-                        }}
-                      />
-                      {mode}
-                    </label>
-                  )}
-                </For>
-              </fieldset>
-              <label class="stack">
-                Prefer lines
-                <input
-                  placeholder="tram:10, tram:14"
-                  value={leg.prefer}
-                  onInput={(e) => update(i(), { prefer: e.currentTarget.value })}
-                />
-              </label>
-              <label class="stack">
-                Avoid lines
-                <input
-                  placeholder="bus:58A"
-                  value={leg.avoid}
-                  onInput={(e) => update(i(), { avoid: e.currentTarget.value })}
-                />
-              </label>
-              <Show when={legs().length > 1}>
-                <button
-                  type="button"
-                  class="ghost small"
-                  onClick={() => setLegs((list) => list.filter((_, j) => j !== i()))}
-                >
-                  Remove hop
-                </button>
-              </Show>
-            </li>
-          )}
-        </For>
-      </ol>
-      <div class="actions">
-        <button
-          type="button"
-          onClick={() =>
-            setLegs((list) => [...list, { to: start(), modes: [], prefer: "", avoid: "" }])
-          }
-        >
-          Add hop
-        </button>
-        <span class="spacer" />
-        <button type="button" class="ghost" onClick={() => props.onDone()}>
-          Cancel
-        </button>
-        <button type="submit" class="primary">
-          Save route
-        </button>
-      </div>
-      <Show when={error()}>
-        {(message) => (
-          <p class="form-error" role="alert">
-            {message()}
-          </p>
-        )}
-      </Show>
-    </form>
-  );
-};
-
 export const PlacesView = (props: { city: CitySummary }) => {
   const records = useCity(() => props.city.id);
-  const [editing, setEditing] = createSignal<CorridorRecord | "new">();
   const [message, setMessage] = createSignal<string>();
   const areaName = createMemo(
     () => new Map(records().areas.map((r) => [r.area.slug, r.area.name] as const)),
@@ -384,29 +171,14 @@ export const PlacesView = (props: { city: CitySummary }) => {
       <div class="card">
         <div class="card-head">
           <h2>Routes</h2>
-          <button
-            type="button"
-            disabled={records().areas.length < 2}
-            onClick={() => setEditing("new")}
-          >
+          <a class="button" href={href({ page: "route", id: undefined })}>
             New route
-          </button>
+          </a>
         </div>
         <p class="subtitle">
-          Chains of interchange areas you travel through. The comparison and trip views time them
-          against the live timetable.
+          Chains of interchange areas you travel through, with the lines you'd take between them.
+          Trip planning suggests a route whenever it fits, and Compare times them side by side.
         </p>
-        <Show when={editing()}>
-          {(current) => (
-            <RouteEditor
-              city={props.city}
-              areas={records().areas}
-              routes={records().corridors}
-              editing={current() === "new" ? undefined : (current() as CorridorRecord)}
-              onDone={() => setEditing(undefined)}
-            />
-          )}
-        </Show>
         <ul class="records">
           <For
             each={records().corridors}
@@ -429,9 +201,9 @@ export const PlacesView = (props: { city: CitySummary }) => {
                 <Show when={record().origin === "seed"}>
                   <span class="badge">starter</span>
                 </Show>
-                <button type="button" class="ghost small" onClick={() => setEditing(record())}>
-                  Edit
-                </button>
+                <a class="button ghost small" href={href({ page: "route", id: record().id })}>
+                  Edit on map
+                </a>
                 <button
                   type="button"
                   class="ghost small"

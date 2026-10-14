@@ -1044,25 +1044,6 @@ input[aria-invalid="true"] {
   min-width: 0;
 }
 
-.route-editor {
-  border-color: var(--accent);
-}
-
-.route-editor h3 {
-  margin-top: 0;
-}
-
-.legs-editor {
-  margin: 0;
-  padding-left: 1.4em;
-}
-
-.legs-editor > li {
-  padding: 6px 0 10px;
-  border-bottom: 1px dashed var(--border);
-}
-
-.modes,
 .kinds {
   display: flex;
   flex-wrap: wrap;
@@ -1387,4 +1368,109 @@ a.button:hover {
 .substitute-list .current {
   font-weight: 600;
   text-decoration: underline;
+}
+
+/* Map route editor. */
+.route-editor-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+.draft-areas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+.draft-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.draft-area .hit-main {
+  flex: 1;
+  display: grid;
+}
+.area-number {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--accent, #2a7);
+  color: var(--surface-1, #fff);
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex: none;
+}
+.area-actions {
+  display: flex;
+  gap: 0.1rem;
+}
+.draft-hop {
+  margin-left: 0.7rem;
+  padding: 0.25rem 0 0.25rem 1.1rem;
+  border-left: 2px dashed var(--accent, #2a7);
+}
+.line-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.line-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.line-chip.preferred {
+  border-color: var(--accent, #2a7);
+  background: color-mix(in srgb, var(--accent, #2a7) 15%, transparent);
+}
+.line-chip.avoided {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.chip-mark:empty {
+  display: none;
+}
+.chip-ride {
+  font-size: 0.75rem;
+}
+.hop-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.3rem;
+}
+.hop-summary {
+  margin: 0.2rem 0 0;
+}
+.preview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+.preview-list button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+}
+.preview-list button.open {
+  outline: 2px solid var(--accent, #2a7);
+}
+.journey-actions {
+  margin: 0.25rem 0.75rem 0.5rem;
+}
+button.danger {
+  color: var(--danger, #c33);
 }
