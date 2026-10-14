@@ -43,10 +43,6 @@ jobs:
           image="${FORGEJO_SERVER_URL#*://}/$(echo "$FORGEJO_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
           # A builder that can export its layer cache to the registry.
           docker buildx create --name odjazd --driver docker-container --use >/dev/null
-          # Emulate arm64 only when the runner isn't arm64 itself.
-          if [ "$(uname -m)" != aarch64 ]; then
-            docker run --rm --privileged tonistiigi/binfmt --install arm64
-          fi
           docker buildx build . \
             --platform linux/arm64 \
             --tag "$image:$FORGEJO_SHA" \
