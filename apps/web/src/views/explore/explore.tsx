@@ -29,6 +29,7 @@ import { RoutesNow } from "./routes-now.tsx";
 import { TripPanel } from "./trip.tsx";
 import { ago } from "./parts.tsx";
 import { PlanBar } from "./search.tsx";
+import { Balloon } from "./balloon.tsx";
 import { draftOf, setDraft } from "./endpoints.ts";
 import { StopPanel } from "./stop.tsx";
 import { VehiclePanel } from "./vehicle.tsx";
@@ -57,6 +58,22 @@ export const ExploreView = (props: {
   };
   onCleanup(() => clearTimeout(arrivedTimer));
 
+  // The long-pressed point's balloon, kept on its point while the map moves.
+  const [balloon, setBalloon] = createSignal<{ lat: number; lon: number }>();
+  const [frame, setFrame] = createSignal(0);
+  createEffect(map, (m) => m?.onCamera(() => setFrame((n) => n + 1)));
+  const balloonAt = createMemo(() => {
+    frame();
+    const point = balloon();
+    const m = map();
+    const element = container();
+    if (point === undefined || m === undefined || element === undefined) return undefined;
+    return { ...m.project(point.lat, point.lon), width: element.clientWidth };
+  });
+
+  // Going anywhere (a stop tapped, a panel closed) leaves the balloon behind.
+  createEffect(route, () => setBalloon(undefined));
+
   // MapLibre is ~1 MB: load it only when the map is shown.
   createEffect(container, (element) => {
     if (element === undefined) return;
@@ -72,10 +89,10 @@ export const ExploreView = (props: {
           mapPick.stop === undefined ? navigate({ page: "stop", group }) : mapPick.stop(group),
         onVehicle: (id) => navigate({ page: "vehicle", id }),
         onPoint: (lat, lon) =>
-          mapPick.point === undefined
-            ? navigate({ page: "point", lat, lon })
-            : mapPick.point(lat, lon),
+          mapPick.point === undefined ? setBalloon({ lat, lon }) : mapPick.point(lat, lon),
         onBackground: () => {
+          // A tap beside an open balloon only closes it.
+          if (untrack(balloon) !== undefined) return setBalloon(undefined);
           if (route().page !== "map" && mapPick.stop === undefined) navigate({ page: "map" });
         },
         onCity: (id) => {
@@ -371,6 +388,21 @@ export const ExploreView = (props: {
       </aside>
       <div class="map-area">
         <div class="map" ref={setContainer} />
+        <Show when={balloon()}>
+          {(point) => (
+            <Show when={balloonAt()}>
+              {(at) => (
+                <Balloon
+                  city={props.city.id}
+                  point={point()}
+                  at={at()}
+                  stops={stopsReady}
+                  onClose={() => setBalloon(undefined)}
+                />
+              )}
+            </Show>
+          )}
+        </Show>
         <Show when={arrived()}>
           {(name) => (
             <p class="arrived" role="status">

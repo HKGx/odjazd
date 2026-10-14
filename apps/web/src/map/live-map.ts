@@ -227,7 +227,13 @@ export class LiveMap {
       if (event.originalEvent === undefined) return;
       this.options.onMoved(this.center(), this.map.getZoom());
     });
+    // Lifting the finger after a long-press can still click: that click isn't a tap.
+    let pressed = false;
     this.map.on("click", (event) => {
+      if (pressed) {
+        pressed = false;
+        return;
+      }
       const hits = this.map.queryRenderedFeatures(event.point, {
         layers: ["vehicles", "stops", "route-stops", "cities"].filter((id) =>
           this.map.getLayer(id),
@@ -253,10 +259,12 @@ export class LiveMap {
     };
     this.map.on("touchstart", (event) => {
       cancel();
+      pressed = false;
       if (event.originalEvent.touches.length !== 1) return;
       const { lat, lng } = event.lngLat;
       press = setTimeout(() => {
         press = undefined;
+        pressed = true;
         this.options.onPoint(lat, lng);
       }, 550);
     });
@@ -904,6 +912,22 @@ export class LiveMap {
   vehiclePosition(id: string): [number, number] | undefined {
     const track = this.tracks.get(id);
     return track === undefined ? undefined : this.position(track, performance.now());
+  }
+
+  /** Where a point is on screen, in pixels from the map's top left corner. */
+  project(lat: number, lon: number): { x: number; y: number } {
+    const { x, y } = this.map.project([lon, lat]);
+    return { x, y };
+  }
+
+  /** Calls `listener` on every camera frame (pan, zoom, resize); returns the unsubscribe. */
+  onCamera(listener: () => void): () => void {
+    this.map.on("move", listener);
+    this.map.on("resize", listener);
+    return () => {
+      this.map.off("move", listener);
+      this.map.off("resize", listener);
+    };
   }
 
   flyTo(lat: number, lon: number, zoom?: number) {

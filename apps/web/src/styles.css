@@ -1783,3 +1783,90 @@ button.danger {
   gap: 2px;
   min-width: 0;
 }
+
+/* A long-pressed point: its pin, and the balloon of what to do with it. */
+.balloon-pin {
+  position: absolute;
+  z-index: 6;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--surface-1);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+
+.balloon {
+  --gap: 18px;
+  position: absolute;
+  z-index: 7;
+  width: max-content;
+  max-width: 300px;
+  padding: 10px 10px 8px;
+  translate: -50% calc(-100% - var(--gap));
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.3);
+  animation: balloon-in 140ms ease-out;
+}
+
+.balloon.below {
+  translate: -50% var(--gap);
+}
+
+/* The tip, under the point even when the box slid away from an edge. */
+.balloon::after {
+  content: "";
+  position: absolute;
+  left: calc(50% + var(--tip, 0px));
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  translate: -50% 0;
+  rotate: 45deg;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.balloon.below::after {
+  top: -7px;
+  bottom: auto;
+  rotate: 225deg;
+}
+
+@keyframes balloon-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balloon {
+    animation: none;
+  }
+}
+
+.balloon-title {
+  margin: 0 4px 8px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.balloon-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.balloon-actions button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
