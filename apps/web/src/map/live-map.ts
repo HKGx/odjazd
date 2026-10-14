@@ -11,6 +11,7 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
+import { holdTimer } from "../press.ts";
 
 // Vite pre-bundles MapLibre, which breaks its `import.meta.url`-relative worker lookup.
 setWorkerUrl(workerUrl);
@@ -228,12 +229,9 @@ export class LiveMap {
       this.options.onMoved(this.center(), this.map.getZoom());
     });
     // Lifting the finger after a long-press can still click: that click isn't a tap.
-    let pressed = false;
+    const hold = holdTimer();
     this.map.on("click", (event) => {
-      if (pressed) {
-        pressed = false;
-        return;
-      }
+      if (hold.take()) return;
       const hits = this.map.queryRenderedFeatures(event.point, {
         layers: ["vehicles", "stops", "route-stops", "cities"].filter((id) =>
           this.map.getLayer(id),
@@ -247,29 +245,27 @@ export class LiveMap {
       else if (stop !== undefined) this.options.onStop(Number(stop.properties["group"]));
       else this.options.onBackground();
     });
+    // A right-click; after a touch hold the browser sends one too, for the same press.
     this.map.on("contextmenu", (event) => {
       event.preventDefault();
-      this.options.onPoint(event.lngLat.lat, event.lngLat.lng);
-    });
-    // Touch long-press; any movement or a second finger cancels it.
-    let press: ReturnType<typeof setTimeout> | undefined;
-    const cancel = () => {
-      if (press !== undefined) clearTimeout(press);
-      press = undefined;
-    };
-    this.map.on("touchstart", (event) => {
-      cancel();
-      pressed = false;
-      if (event.originalEvent.touches.length !== 1) return;
       const { lat, lng } = event.lngLat;
-      press = setTimeout(() => {
-        press = undefined;
-        pressed = true;
-        this.options.onPoint(lat, lng);
-      }, 550);
+      hold.fire(() => this.options.onPoint(lat, lng));
     });
-    for (const type of ["touchend", "touchcancel", "touchmove", "movestart"] as const) {
-      this.map.on(type, cancel);
+    // A mouse press starts afresh: the right-click before it doesn't swallow its click. Only a
+    // real mouse: after a touch hold the browser fakes a mouse press, and that click must go.
+    this.map.getCanvasContainer().addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse") hold.take();
+    });
+    // Touch long-press, timed like every other in the app; wandering off, a second finger or
+    // the map starting to move cancels it.
+    this.map.on("touchstart", (event) => {
+      if (event.originalEvent.touches.length !== 1) return hold.cancel();
+      const { lat, lng } = event.lngLat;
+      hold.start(event.point.x, event.point.y, () => this.options.onPoint(lat, lng));
+    });
+    this.map.on("touchmove", (event) => hold.move(event.point.x, event.point.y));
+    for (const type of ["touchend", "touchcancel", "movestart"] as const) {
+      this.map.on(type, hold.cancel);
     }
     for (const layer of ["vehicles", "stops", "route-stops", "cities"]) {
       this.map.on("mouseenter", layer, () => (this.map.getCanvas().style.cursor = "pointer"));
