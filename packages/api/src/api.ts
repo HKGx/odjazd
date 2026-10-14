@@ -20,7 +20,7 @@ export class CitiesGroup extends HttpApiGroup.make("cities").add(
   }),
 ) {}
 
-/** Immutable, content-addressed timetable files (`<hash>.bin`), served gzip-encoded. */
+/** Immutable, content-addressed timetables (`<hash>.bin`) and street networks (`<hash>.walk`), gzip-encoded. */
 export class FeedsGroup extends HttpApiGroup.make("feeds").add(
   HttpApiEndpoint.get("timetable", "/feeds/:file", {
     params: { file: Schema.String },

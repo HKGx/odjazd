@@ -1,6 +1,7 @@
 import { CityManifest, OdjazdApi } from "@odjazd/api";
 import type { CityId } from "@odjazd/model";
 import { decodeTimetable } from "@odjazd/timetable";
+import { decodeWalkGraph, makeWalkNetwork } from "@odjazd/walk";
 import type { Vehicle } from "@odjazd/api";
 import { Clock, Effect, Option, Ref, Schedule, Schema, Stream, SubscriptionRef } from "effect";
 import { HttpApiClient } from "effect/http-api";
@@ -73,6 +74,28 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
         return bytes;
       });
 
+      const scope = yield* Effect.scope;
+
+      /** The street network, from the device or the network, into `host`; walks are estimated until then. */
+      const streetsFor = Effect.fn("Timetable.streets")(function* (
+        city: CityId,
+        manifest: CityManifest,
+        host: Host,
+      ) {
+        const file = manifest.streets;
+        if (file === undefined) return;
+        const saved = yield* store.streets(city, file.hash);
+        let bytes: Uint8Array;
+        if (Option.isSome(saved)) bytes = saved.value;
+        else {
+          bytes = yield* api.feeds.timetable({ params: { file: `${file.hash}.walk` } });
+          yield* store.saveStreets(city, file.hash, bytes);
+        }
+        const graph = yield* Effect.try(() => decodeWalkGraph(bytes));
+        host.setStreets(makeWalkNetwork(graph));
+      });
+      const streetsLoading = new WeakSet<Host>();
+
       const load = Effect.fn("Timetable.load")(function* (city: CityId) {
         const { manifest, source } = yield* manifestFor(city);
         const current = (yield* Ref.get(loaded)).get(city);
@@ -92,6 +115,18 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
           }
           yield* Ref.update(loaded, (map) =>
             new Map(map).set(city, { hash: manifest.timetable.hash, host: made }),
+          );
+        }
+        if (!host.hasStreets() && !streetsLoading.has(host)) {
+          const target = host;
+          streetsLoading.add(target);
+          yield* streetsFor(city, manifest, target).pipe(
+            Effect.catchCause((cause) =>
+              Effect.logWarning("streets: unavailable, walks stay estimated", cause).pipe(
+                Effect.andThen(Effect.sync(() => streetsLoading.delete(target))),
+              ),
+            ),
+            Effect.forkIn(scope),
           );
         }
         const { timetable } = host;
@@ -118,7 +153,6 @@ export const handlersLayer = (options: { readonly baseUrl?: string | undefined }
         });
 
       // One upstream SSE connection per city, shared by every Live subscriber.
-      const scope = yield* Effect.scope;
       const liveFor = Effect.fn("Timetable.live")(function* (city: CityId) {
         const existing = lives.get(city);
         if (existing !== undefined) return existing;

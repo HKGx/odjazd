@@ -23,6 +23,7 @@
     "@odjazd/prediction": "workspace:*",
     "@odjazd/timetable": "workspace:*",
     "@odjazd/user-data": "workspace:*",
+    "@odjazd/walk": "workspace:*",
     "effect": "4.0.4"
   }
 }

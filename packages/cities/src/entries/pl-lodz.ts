@@ -1,4 +1,5 @@
 import type { CatalogEntry } from "../schema.ts";
+import { geofabrik } from "./osm.ts";
 
 // Verified 2026-10-13. Static versions appear irregularly (every 1-4 days,
 // sometimes twice a day), each valid from its publication day. RT refreshes on
@@ -23,6 +24,7 @@ export const plLodz: typeof CatalogEntry.Encoded = {
   bbox: { south: 51.63, west: 19.18, north: 51.93, east: 19.79 },
   center: { lat: 51.7769, lon: 19.4547 },
   status: "enabled",
+  streets: geofabrik("europe/poland/lodzkie"),
   feeds: {
     static: [
       {

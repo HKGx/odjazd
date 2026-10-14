@@ -100,6 +100,108 @@ describe("buildPlanIndex", () => {
   });
 });
 
+describe("buildPlanIndex with footpaths", () => {
+  // p and q are 500 m apart: beyond the straight-line 400 m rule, but listed as a footpath.
+  // c and d are 50 m apart and not listed, so they must not become neighbours.
+  const stops = [
+    ["p", 51.7, 19.46],
+    ["q", 51.7045, 19.46],
+    ["c", 51.72, 19.46],
+    ["d", 51.72045, 19.46],
+  ] as const;
+  const timetable = buildTimetable(stops, [
+    {
+      line: "tram:1",
+      id: "t1",
+      stops: [
+        ["p", "08:00"],
+        ["c", "08:10"],
+      ],
+    },
+  ]);
+  const withFootpaths: Timetable = {
+    ...timetable,
+    footpaths: {
+      first: Uint32Array.of(0, 1, 2, 2, 2),
+      to: Uint32Array.of(1, 0),
+      // Deliberately not the straight-line 500 m, so the test shows the listed value is used.
+      meters: Uint32Array.of(777, 777),
+    },
+  };
+
+  it("uses exactly the listed neighbours and meters", () => {
+    const index = buildPlanIndex(withFootpaths);
+    expect(Array.from(index.neighbors[0] ?? [])).toEqual([1]);
+    expect(Array.from(index.neighborMeters[0] ?? [])).toEqual([777]);
+    expect(Array.from(index.neighbors[1] ?? [])).toEqual([0]);
+    expect(Array.from(index.neighborMeters[1] ?? [])).toEqual([777]);
+    expect(Array.from(index.neighbors[2] ?? [])).toEqual([]);
+    expect(Array.from(index.neighbors[3] ?? [])).toEqual([]);
+  });
+
+  it("without footpaths, the same stops use the straight-line rule instead", () => {
+    const index = buildPlanIndex(timetable);
+    expect(Array.from(index.neighbors[0] ?? [])).toEqual([]);
+    expect(Array.from(index.neighbors[2] ?? [])).toEqual([3]);
+  });
+
+  it("walks a transfer for meters / speed seconds", () => {
+    // s2 and s3 are 400 m apart on foot (listed), so the change walk takes 400 / 1.25 m/s.
+    const transferStops = [
+      ["s1", 51.7, 19.46],
+      ["s2", 51.72, 19.46],
+      ["s3", 51.7225, 19.46],
+      ["d", 51.74, 19.46],
+    ] as const;
+    const base = buildTimetable(transferStops, [
+      {
+        line: "tram:1",
+        id: "t1",
+        stops: [
+          ["s1", "08:00"],
+          ["s2", "08:10"],
+        ],
+      },
+      {
+        line: "tram:2",
+        id: "t2",
+        stops: [
+          ["s3", "08:20"],
+          ["d", "08:30"],
+        ],
+      },
+    ]);
+    const linked: Timetable = {
+      ...base,
+      footpaths: {
+        first: Uint32Array.of(0, 0, 1, 2, 2),
+        to: Uint32Array.of(2, 1),
+        meters: Uint32Array.of(400, 400),
+      },
+    };
+    const walking = straightLineWalking();
+    const journeys = planOnce(
+      linked,
+      buildPlanIndex(linked),
+      { lat: 51.7, lon: 19.46 },
+      { lat: 51.74, lon: 19.46 },
+      planOptions(linked, { transferBufferSec: 0, walking }),
+    );
+
+    const [journey] = journeys;
+    expect(journey?.rides).toBe(2);
+    const transfer = journey?.legs.find((leg) => leg.kind === "walk" && leg.fromStop !== undefined);
+    expect(transfer).toEqual({
+      kind: "walk",
+      fromStop: 1,
+      toStop: 2,
+      departAt: at("08:10"),
+      arriveAt: at("08:10") + walking.secondsAlong(400),
+    });
+    expect(walking.secondsAlong(400)).toBe(320);
+  });
+});
+
 describe("planOnce", () => {
   it("finds a direct ride with no walk legs when access and egress are zero", () => {
     const timetable = buildTimetable(

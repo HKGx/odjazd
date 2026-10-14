@@ -18,9 +18,11 @@ export const citiesHandlers = (entries: ReadonlyArray<CatalogEntry>) =>
             const cities: Array<CitySummary> = [];
             for (const entry of entries) {
               const manifest = yield* publisher.manifest(entry.id);
-              const bytes = Option.flatMapNullishOr(
+              const bytes = Option.map(
                 manifest,
-                (m) => m.timetable.compressedBytes ?? m.timetable.bytes,
+                (m) =>
+                  (m.timetable.compressedBytes ?? m.timetable.bytes) +
+                  (m.streets === undefined ? 0 : (m.streets.compressedBytes ?? m.streets.bytes)),
               );
               cities.push({
                 id: entry.id,
@@ -32,7 +34,10 @@ export const citiesHandlers = (entries: ReadonlyArray<CatalogEntry>) =>
                 center: entry.center,
                 ...(Option.isSome(bytes) ? { downloadBytes: bytes.value } : {}),
                 realtime: entry.feeds.realtime.map((feed) => feed.type),
-                attribution: entry.feeds.static.map((feed) => feed.license),
+                attribution: [
+                  ...entry.feeds.static.map((feed) => feed.license),
+                  ...(entry.streets === undefined ? [] : [entry.streets.license]),
+                ],
               });
             }
             return { cities };

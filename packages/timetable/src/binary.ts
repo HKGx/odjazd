@@ -1,7 +1,7 @@
 import type { Timetable } from "./timetable.ts";
 
 /*
- * Binary timetable file, version 2 (version 1 is the same without shapes):
+ * Binary timetable file, version 3 (2 lacks footpaths, 1 also lacks shapes):
  *
  *   0  "ODJT"            magic
  *   4  u32               format version
@@ -16,9 +16,9 @@ import type { Timetable } from "./timetable.ts";
  */
 
 const MAGIC = 0x544a444f; // "ODJT" read as little-endian u32
-export const TIMETABLE_FORMAT_VERSION = 2;
+export const TIMETABLE_FORMAT_VERSION = 3;
 /** Older files still read, e.g. the device's offline copy from before an update. */
-const READABLE_VERSIONS: ReadonlyArray<number> = [1, 2];
+const READABLE_VERSIONS: ReadonlyArray<number> = [1, 2, 3];
 
 type ArrayKind = "f64" | "u32" | "i32" | "u8" | "i8";
 
@@ -45,7 +45,17 @@ const shapeSections = [
   ["shapes.ofTrip", "i32"],
 ] as const satisfies ReadonlyArray<readonly [string, ArrayKind]>;
 
-type SectionName = (typeof sections)[number][0] | (typeof shapeSections)[number][0];
+/** Written only when the timetable has footpaths. */
+const footpathSections = [
+  ["footpaths.first", "u32"],
+  ["footpaths.to", "u32"],
+  ["footpaths.meters", "u32"],
+] as const satisfies ReadonlyArray<readonly [string, ArrayKind]>;
+
+type SectionName =
+  | (typeof sections)[number][0]
+  | (typeof shapeSections)[number][0]
+  | (typeof footpathSections)[number][0];
 
 interface Header {
   readonly cityId: Timetable["cityId"];
@@ -100,6 +110,13 @@ const columnsOf = (t: Timetable): Partial<Record<SectionName, Column>> => ({
         "shapes.lon": t.shapes.lon,
         "shapes.ofTrip": t.shapes.ofTrip,
       }),
+  ...(t.footpaths === undefined
+    ? {}
+    : {
+        "footpaths.first": t.footpaths.first,
+        "footpaths.to": t.footpaths.to,
+        "footpaths.meters": t.footpaths.meters,
+      }),
 });
 
 const align8 = (n: number) => (n + 7) & ~7;
@@ -112,6 +129,7 @@ export const encodeTimetable = (timetable: Timetable): Uint8Array<ArrayBuffer> =
   const present: ReadonlyArray<readonly [SectionName, ArrayKind, Column]> = [
     ...sections,
     ...shapeSections,
+    ...footpathSections,
   ].flatMap(([name, kind]) => {
     const column = columns[name];
     return column === undefined ? [] : [[name, kind, column] as const];
@@ -266,6 +284,15 @@ export const decodeTimetable = (bytes: Uint8Array): Timetable => {
             lat: section("shapes.lat", "i32") as Int32Array,
             lon: section("shapes.lon", "i32") as Int32Array,
             ofTrip: section("shapes.ofTrip", "i32") as Int32Array,
+          },
+        }),
+    ...(header.sections["footpaths.first"] === undefined
+      ? {}
+      : {
+          footpaths: {
+            first: section("footpaths.first", "u32") as Uint32Array,
+            to: section("footpaths.to", "u32") as Uint32Array,
+            meters: section("footpaths.meters", "u32") as Uint32Array,
           },
         }),
   };

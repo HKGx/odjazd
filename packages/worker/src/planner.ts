@@ -24,7 +24,7 @@ import {
   type LineId,
   lineRefMatches,
 } from "@odjazd/model";
-import { type Realization, straightLineWalking } from "@odjazd/prediction";
+import type { Realization, WalkingModel } from "@odjazd/prediction";
 import { instantOn, type Timetable } from "@odjazd/timetable";
 import { ridePath } from "./shape-path.ts";
 import type {
@@ -57,6 +57,12 @@ export const makePlanner = (
     readonly delayAt: (trip: number, day: number, stopTime: number) => number | undefined;
     readonly searchIndex: () => SearchIndex;
     readonly label: (id: LineId) => LineLabel;
+    readonly walking: (speedKmh: number) => WalkingModel;
+    /** Along the streets, when the network is loaded. */
+    readonly walkRoute: (
+      from: LatLon,
+      to: LatLon,
+    ) => { readonly meters: number; readonly path: ReadonlyArray<LatLon> } | undefined;
   },
 ) => {
   const { stops, stopTimes, trips, lines } = timetable;
@@ -140,15 +146,20 @@ export const makePlanner = (
     departAt: number,
     arriveAt: number,
     names: { readonly from?: string | undefined; readonly to?: string | undefined },
-  ): PlanLegDto => ({
-    _tag: "Walk",
-    ...(names.from === undefined ? {} : { from: names.from }),
-    ...(names.to === undefined ? {} : { to: names.to }),
-    departAt,
-    arriveAt,
-    meters: Math.round(distanceMeters(from.lat, from.lon, to.lat, to.lon) * 1.3),
-    path: [from, to],
-  });
+  ): PlanLegDto => {
+    const streets = context.walkRoute(from, to);
+    return {
+      _tag: "Walk",
+      ...(names.from === undefined ? {} : { from: names.from }),
+      ...(names.to === undefined ? {} : { to: names.to }),
+      departAt,
+      arriveAt,
+      meters: Math.round(
+        streets?.meters ?? distanceMeters(from.lat, from.lon, to.lat, to.lon) * 1.3,
+      ),
+      path: streets?.path ?? [from, to],
+    };
+  };
 
   const summarize = (legs: ReadonlyArray<PlanLegDto>) => ({
     walkMeters: legs.reduce((sum, leg) => sum + (leg._tag === "Walk" ? leg.meters : 0), 0),
@@ -244,7 +255,7 @@ export const makePlanner = (
   }): EvaluationOptions => ({
     timetable,
     realization: context.current(),
-    walking: straightLineWalking({ speedKmh: query.walkingSpeedKmh }),
+    walking: context.walking(query.walkingSpeedKmh),
     transferBufferSec: query.transferBufferSec,
     nonPreferredPenaltySec: query.preferencePenaltySec,
     maxWaitSec: 3600,
@@ -324,7 +335,7 @@ export const makePlanner = (
   };
 
   const section = (query: SectionQuery): SectionDto => {
-    const walking = straightLineWalking({ speedKmh: query.walkingSpeedKmh });
+    const walking = context.walking(query.walkingSpeedKmh);
     const found = sectionOptions(
       timetable,
       context.current(),

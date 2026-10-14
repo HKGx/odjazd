@@ -23,7 +23,12 @@ export interface PlanIndex {
   readonly patternsOfStop: ReadonlyArray<Uint32Array>;
   /** Per stop: stops within transfer walking distance (excluding itself). */
   readonly neighbors: ReadonlyArray<Uint32Array>;
+  /** Walking meters to each of `neighbors`, along the ground. */
+  readonly neighborMeters: ReadonlyArray<Uint32Array>;
 }
+
+/** Without footpaths: straight-line estimate, as in `straightLineWalking`. */
+const detourFactor = 1.3;
 
 export const buildPlanIndex = (timetable: Timetable, maxTransferMeters = 400): PlanIndex => {
   const { trips, stopTimes, stops } = timetable;
@@ -88,7 +93,21 @@ export const buildPlanIndex = (timetable: Timetable, maxTransferMeters = 400): P
     });
   });
 
-  // Neighbors via a latitude-sorted sweep.
+  // The timetable's street footpaths when it has them.
+  const { footpaths } = timetable;
+  if (footpaths !== undefined) {
+    const range = (s: number) => [footpaths.first[s] ?? 0, footpaths.first[s + 1] ?? 0] as const;
+    return {
+      patterns,
+      patternsOfStop: ofStop.map((list) => Uint32Array.from(list)),
+      neighbors: Array.from({ length: stops.count }, (_, s) => footpaths.to.subarray(...range(s))),
+      neighborMeters: Array.from({ length: stops.count }, (_, s) =>
+        footpaths.meters.subarray(...range(s)),
+      ),
+    };
+  }
+
+  // Otherwise neighbors via a latitude-sorted sweep.
   const order = Array.from({ length: stops.count }, (_, i) => i).sort(
     (a, b) => (stops.lat[a] ?? 0) - (stops.lat[b] ?? 0),
   );
@@ -112,6 +131,18 @@ export const buildPlanIndex = (timetable: Timetable, maxTransferMeters = 400): P
     patterns,
     patternsOfStop: ofStop.map((list) => Uint32Array.from(list)),
     neighbors: near.map((list) => Uint32Array.from(list)),
+    neighborMeters: near.map((list, i) =>
+      Uint32Array.from(list, (j) =>
+        Math.round(
+          distanceMeters(
+            stops.lat[i] ?? 0,
+            stops.lon[i] ?? 0,
+            stops.lat[j] ?? 0,
+            stops.lon[j] ?? 0,
+          ) * detourFactor,
+        ),
+      ),
+    ),
   };
 };
 
@@ -364,11 +395,11 @@ export const planOnce = (
     const walked: Array<number> = [];
     for (const stop of reached) {
       const arrival = current.arrival[stop] ?? Infinity;
-      const lat = stops.lat[stop] ?? 0;
-      const lon = stops.lon[stop] ?? 0;
-      for (const next of index.neighbors[stop] ?? []) {
-        const time =
-          arrival + walking.seconds(lat, lon, stops.lat[next] ?? 0, stops.lon[next] ?? 0);
+      const neighbors = index.neighbors[stop] ?? new Uint32Array(0);
+      const meters = index.neighborMeters[stop];
+      for (let k = 0; k < neighbors.length; k++) {
+        const next = neighbors[k] ?? 0;
+        const time = arrival + walking.secondsAlong(meters?.[k] ?? 0);
         if (time < (best[next] ?? Infinity) && time < bestTarget) {
           current.arrival[next] = time;
           current.kind[next] = KIND_WALK;

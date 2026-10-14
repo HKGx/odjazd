@@ -214,6 +214,9 @@ importers:
       '@odjazd/timetable':
         specifier: workspace:*
         version: link:../../packages/timetable
+      '@odjazd/walk':
+        specifier: workspace:*
+        version: link:../../packages/walk
       effect:
         specifier: 4.0.4
         version: 4.0.4
@@ -318,6 +321,9 @@ importers:
       '@odjazd/timetable':
         specifier: workspace:*
         version: link:../timetable
+      '@odjazd/walk':
+        specifier: workspace:*
+        version: link:../walk
       csv-parse:
         specifier: ^7.0.3
         version: 7.0.3
@@ -380,6 +386,15 @@ importers:
         specifier: ^3.0.2
         version: 3.0.2
 
+  packages/walk:
+    dependencies:
+      '@odjazd/model':
+        specifier: workspace:*
+        version: link:../model
+      '@odjazd/prediction':
+        specifier: workspace:*
+        version: link:../prediction
+
   packages/worker:
     dependencies:
       '@effect/platform-browser':
@@ -403,6 +418,9 @@ importers:
       '@odjazd/user-data':
         specifier: workspace:*
         version: link:../user-data
+      '@odjazd/walk':
+        specifier: workspace:*
+        version: link:../walk
       effect:
         specifier: 4.0.4
         version: 4.0.4

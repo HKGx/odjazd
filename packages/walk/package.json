@@ -1,0 +1,19 @@
+{
+  "name": "@odjazd/walk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@odjazd/model": "workspace:*",
+    "@odjazd/prediction": "workspace:*"
+  }
+}

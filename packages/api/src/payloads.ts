@@ -17,7 +17,7 @@ export const CitySummary = Schema.Struct({
   timezone: TimeZone,
   bbox: BoundingBox,
   center: LatLon,
-  /** Bytes of the current timetable download, if one is published. */
+  /** Bytes of the current timetable download (and street network), if one is published. */
   downloadBytes: Schema.optionalKey(Schema.Int),
   realtime: Schema.Array(RealtimeFeedType),
   attribution: Schema.Array(License),
@@ -26,6 +26,23 @@ export type CitySummary = typeof CitySummary.Type;
 
 export const CityList = Schema.Struct({ cities: Schema.Array(CitySummary) });
 export type CityList = typeof CityList.Type;
+
+/** A published walk graph and where it came from. */
+export const StreetsFile = Schema.Struct({
+  hash: ContentHash,
+  /** Relative to the API root, e.g. `/feeds/<hash>.walk`. Immutable. */
+  path: Schema.String,
+  bytes: Schema.Int,
+  compressedBytes: Schema.optionalKey(Schema.Int),
+  formatVersion: Schema.Int,
+  /** When the OpenStreetMap extract was cut. */
+  osmTimestamp: Schema.optionalKey(Schema.String),
+  /** Hash of the extract it was built from. */
+  sourceHash: ContentHash,
+  /** Epoch seconds the server last checked the extract for changes. */
+  checkedAt: Schema.Int,
+});
+export type StreetsFile = typeof StreetsFile.Type;
 
 /** `GET /cities/:city/manifest`: what a client downloads for a city right now. */
 export const CityManifest = Schema.Struct({
@@ -41,7 +58,11 @@ export const CityManifest = Schema.Struct({
     feedVersion: Schema.optionalKey(Schema.String),
     firstDate: ServiceDate,
     dayCount: Schema.Int,
+    /** The street network its footpaths were measured on, if any. */
+    streetsHash: Schema.optionalKey(ContentHash),
   }),
+  /** The walkable street network (OpenStreetMap), if the city has one. */
+  streets: Schema.optionalKey(StreetsFile),
   /** Epoch seconds when the server compiled this timetable. */
   compiledAt: Schema.Int,
   /** Hash of the raw GTFS archive it was compiled from. */

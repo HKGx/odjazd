@@ -64,6 +64,16 @@ export const StaticFeed = Schema.Struct({
 });
 export type StaticFeed = typeof StaticFeed.Type;
 
+/** OpenStreetMap extract covering the city: walking follows its streets and paths. */
+export const StreetsSource = Schema.Struct({
+  /** An `.osm.pbf` extract sorted by type then id (Geofabrik's are). */
+  url: HttpUrl,
+  /** Extracts change daily; the network barely does. */
+  checkIntervalSeconds: PositiveInt,
+  license: License,
+});
+export type StreetsSource = typeof StreetsSource.Type;
+
 export const RealtimeFeedType = Schema.Literals(["trip_updates", "vehicle_positions", "alerts"]);
 export type RealtimeFeedType = typeof RealtimeFeedType.Type;
 
@@ -95,6 +105,8 @@ export const CatalogEntry = Schema.Struct({
     static: Schema.Array(StaticFeed),
     realtime: Schema.Array(RealtimeFeed),
   }),
+  /** Absent: walks are estimated from straight lines. */
+  streets: Schema.optionalKey(StreetsSource),
   /** PMTiles extract; absent until the city has a map. */
   tiles: Schema.optionalKey(Schema.Struct({ url: HttpUrl })),
   /** References only: never fetch from these unless also listed in `feeds`. */

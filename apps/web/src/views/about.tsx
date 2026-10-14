@@ -1,6 +1,6 @@
 import type { CitySummary } from "@odjazd/api";
 import type { LoadResult } from "@odjazd/worker";
-import { For } from "solid-js";
+import { For, Show } from "solid-js";
 import { megabytes } from "../format.ts";
 
 export const AboutView = (props: { city: CitySummary; loaded: LoadResult }) => {
@@ -38,6 +38,21 @@ export const AboutView = (props: { city: CitySummary; loaded: LoadResult }) => {
           </dd>
           <dt>Source</dt>
           <dd>{props.loaded.source === "cache" ? "offline copy" : "network"}</dd>
+          <dt>Walking</dt>
+          <Show
+            when={manifest().streets}
+            fallback={<dd>Estimated: straight line × 1.3 (no street network for this city)</dd>}
+          >
+            {(streets) => (
+              <dd>
+                Along the streets (OpenStreetMap
+                {streets().osmTimestamp === undefined
+                  ? ""
+                  : ` of ${streets().osmTimestamp?.slice(0, 10)}`}
+                ), {megabytes(streets().compressedBytes ?? streets().bytes)} download
+              </dd>
+            )}
+          </Show>
         </dl>
       </div>
       <div class="card">
@@ -59,8 +74,8 @@ export const AboutView = (props: { city: CitySummary; loaded: LoadResult }) => {
           </For>
         </ul>
         <p class="muted">
-          Travel times are computed on this device from the published schedule. Your areas and
-          corridors never leave it.
+          Travel times and walks are computed on this device from the published schedule and street
+          map. Your areas, corridors and location never leave it.
         </p>
       </div>
     </section>

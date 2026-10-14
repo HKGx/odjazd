@@ -18,6 +18,7 @@
     "@odjazd/cities": "workspace:*",
     "@odjazd/model": "workspace:*",
     "@odjazd/timetable": "workspace:*",
+    "@odjazd/walk": "workspace:*",
     "csv-parse": "^7.0.3",
     "effect": "4.0.4",
     "fflate": "^0.8.3",

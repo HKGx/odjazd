@@ -80,6 +80,33 @@ describe("binary timetable", () => {
     expect(decodeTimetable(old)).toEqual(sample);
   });
 
+  it("round-trips footpaths when the timetable has them", () => {
+    // Stop 0 <-> stop 1 are 400 m apart on foot; stop 2 has no footpath.
+    const withFootpaths: Timetable = {
+      ...sample,
+      footpaths: {
+        first: Uint32Array.of(0, 1, 2, 2),
+        to: Uint32Array.of(1, 0),
+        meters: Uint32Array.of(400, 400),
+      },
+    };
+    const decoded = decodeTimetable(encodeTimetable(withFootpaths));
+    expect(decoded).toEqual(withFootpaths);
+    expect(decoded.footpaths?.meters.length).toBe(2);
+  });
+
+  it("decodes without footpaths as undefined", () => {
+    expect(decodeTimetable(encodeTimetable(sample)).footpaths).toBeUndefined();
+  });
+
+  it("still reads version 2 files (no footpaths)", () => {
+    const old = encodeTimetable(sample).slice();
+    new DataView(old.buffer).setUint32(4, 2, true);
+    const decoded = decodeTimetable(old);
+    expect(decoded).toEqual(sample);
+    expect(decoded.footpaths).toBeUndefined();
+  });
+
   it("rejects foreign, truncated and future-version files", () => {
     const bytes = encodeTimetable(sample);
     expect(() => decodeTimetable(new TextEncoder().encode("PK\u0003\u0004 not ours"))).toThrow(

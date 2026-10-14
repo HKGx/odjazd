@@ -1,4 +1,5 @@
 import type { CatalogEntry } from "../schema.ts";
+import { geofabrik } from "./osm.ts";
 
 // Verified 2026-10-14. The static feed is republished daily (around 05:00) and
 // covers about two weeks ahead. RT lives on ckan2 (both protocols answer; the
@@ -24,6 +25,7 @@ export const plGdansk: typeof CatalogEntry.Encoded = {
   bbox: { south: 54.22, west: 18.33, north: 54.49, east: 18.96 },
   center: { lat: 54.352, lon: 18.6466 },
   status: "enabled",
+  streets: geofabrik("europe/poland/pomorskie"),
   feeds: {
     static: [
       {

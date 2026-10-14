@@ -1,7 +1,8 @@
 import { compareCorridors, departuresFromArea, resolveArea } from "@odjazd/engine";
-import { localToEpoch, type EpochSeconds, type LineId } from "@odjazd/model";
-import { scheduleRealization, straightLineWalking } from "@odjazd/prediction";
+import { localToEpoch, type EpochSeconds, type LatLon, type LineId } from "@odjazd/model";
+import { scheduleRealization, straightLineWalking, type WalkingModel } from "@odjazd/prediction";
 import type { Timetable } from "@odjazd/timetable";
+import { networkWalking, type WalkNetwork } from "@odjazd/walk";
 import { makeExplorer } from "./explore.ts";
 import { makePlanner } from "./planner.ts";
 import type { BoardDto, BoardQuery, CompareQuery, ComparisonDto, LineLabel } from "./schema.ts";
@@ -23,6 +24,23 @@ export const makeHost = (timetable: Timetable) => {
   };
   const stopName = (stop: number) => timetable.stops.names[stop] ?? "?";
   const explorer = makeExplorer(timetable, schedule, label);
+
+  // The street network arrives after the timetable; until then walks are straight-line estimates.
+  let streets: WalkNetwork | undefined;
+  const walkers = new Map<number, ReturnType<typeof networkWalking>>();
+  const streetWalker = (speedKmh: number) => {
+    if (streets === undefined) return undefined;
+    let walker = walkers.get(speedKmh);
+    if (walker === undefined) {
+      walker = networkWalking(streets, { speedKmh });
+      walkers.set(speedKmh, walker);
+    }
+    return walker;
+  };
+  const walking = (speedKmh = 4.5): WalkingModel =>
+    streetWalker(speedKmh) ?? straightLineWalking({ speedKmh });
+  /** Meters and path of a walk along the streets; undefined without the network. */
+  const walkRoute = (from: LatLon, to: LatLon) => streetWalker(4.5)?.route(from, to);
 
   const dayIndex = (date: string) => {
     const first = Date.parse(`${timetable.days.first}T00:00:00Z`);
@@ -51,9 +69,7 @@ export const makeHost = (timetable: Timetable) => {
       {
         timetable,
         realization: explorer.current(),
-        walking: straightLineWalking(
-          request.walkingSpeedKmh === undefined ? {} : { speedKmh: request.walkingSpeedKmh },
-        ),
+        walking: walking(request.walkingSpeedKmh),
         transferBufferSec: request.transferBufferSec,
         nonPreferredPenaltySec: request.preferencePenaltySec ?? 0,
         maxWaitSec: 3600,
@@ -132,10 +148,15 @@ export const makeHost = (timetable: Timetable) => {
     };
   };
 
-  const planner = makePlanner(timetable, { ...explorer, label });
+  const planner = makePlanner(timetable, { ...explorer, label, walking, walkRoute });
 
   return {
     timetable,
+    setStreets: (network: WalkNetwork) => {
+      streets = network;
+      walkers.clear();
+    },
+    hasStreets: () => streets !== undefined,
     compare,
     board,
     plan: planner.plan,

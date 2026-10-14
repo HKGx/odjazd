@@ -23,6 +23,7 @@
     "@odjazd/ingest": "workspace:*",
     "@odjazd/model": "workspace:*",
     "@odjazd/timetable": "workspace:*",
+    "@odjazd/walk": "workspace:*",
     "effect": "4.0.4"
   },
   "devDependencies": {

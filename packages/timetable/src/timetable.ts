@@ -31,6 +31,8 @@ export interface Timetable {
   readonly stopTimes: StopTimes;
   /** Road and track geometry of trips (`shapes.txt`); absent when the feed has none. */
   readonly shapes?: Shapes | undefined;
+  /** Walks between nearby stops along the streets; absent without a street network. */
+  readonly footpaths?: Footpaths | undefined;
 }
 
 export interface ServiceDays {
@@ -111,6 +113,15 @@ export interface Shapes {
   readonly lon: Int32Array;
   /** Shape of each trip, or -1. Length `trips.count`. */
   readonly ofTrip: Int32Array;
+}
+
+export interface Footpaths {
+  /** Stop s's walks are `[first[s], first[s + 1])`. Length `stops.count + 1`. */
+  readonly first: Uint32Array;
+  /** Index into stops. */
+  readonly to: Uint32Array;
+  /** Along the ground. */
+  readonly meters: Uint32Array;
 }
 
 /** Whether `service` runs on service day `day` (index into `days`). */
