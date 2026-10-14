@@ -59,3 +59,9 @@ export const AboutIcon = () => (
     <path d="M12 11v5M12 8h.01" />
   </Icon>
 );
+
+export const MoreIcon = () => (
+  <Icon>
+    <path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3" />
+  </Icon>
+);

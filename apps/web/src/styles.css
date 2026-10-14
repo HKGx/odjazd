@@ -176,14 +176,52 @@ nav.dock {
  * Phones: one header row, and the sections in a small dock floating over the
  * bottom of the screen. Every item is the same size, so changing section moves nothing.
  */
+.dock-city {
+  display: none;
+}
+
 @media (max-width: 760px) {
+  /* No top bar on phones: the map runs to the top, the city sits in the dock. The header
+     stays as an empty anchor for notices. */
   header {
-    flex-wrap: nowrap;
-    height: 52px;
-    padding-block: 0;
+    position: fixed;
+    inset: 0 0 auto;
+    height: env(safe-area-inset-top);
+    padding: 0;
+    border: 0;
+    background: none;
   }
-  nav.sections {
+  header > :not(.status-slot) {
     display: none;
+  }
+  .dock-city {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .dock-city select {
+    appearance: none;
+    field-sizing: content;
+    height: 44px;
+    min-height: 0;
+    padding: 0 26px 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--page);
+    font-weight: 600;
+  }
+  .dock-city::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    translate: 0 -75%;
+    rotate: 45deg;
+    border-right: 1.6px solid var(--text-secondary);
+    border-bottom: 1.6px solid var(--text-secondary);
+    pointer-events: none;
   }
   nav.dock {
     position: fixed;
@@ -1798,18 +1836,19 @@ button.danger {
   pointer-events: none;
 }
 
+/* Looks like the dock: a pill of buttons, with a small tip down to the point. */
 .balloon {
-  --gap: 18px;
+  --gap: 14px;
   position: absolute;
   z-index: 7;
-  width: max-content;
-  max-width: 300px;
-  padding: 10px 10px 8px;
+  display: flex;
+  gap: 2px;
+  padding: 5px;
   translate: -50% calc(-100% - var(--gap));
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.3);
+  border-radius: 999px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.28);
   animation: balloon-in 140ms ease-out;
 }
 
@@ -1817,14 +1856,13 @@ button.danger {
   translate: -50% var(--gap);
 }
 
-/* The tip, under the point even when the box slid away from an edge. */
 .balloon::after {
   content: "";
   position: absolute;
   left: calc(50% + var(--tip, 0px));
-  bottom: -7px;
-  width: 12px;
-  height: 12px;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
   translate: -50% 0;
   rotate: 45deg;
   background: var(--surface-1);
@@ -1833,9 +1871,44 @@ button.danger {
 }
 
 .balloon.below::after {
-  top: -7px;
+  top: -5px;
   bottom: auto;
   rotate: 225deg;
+}
+
+.balloon button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: background-color 150ms;
+}
+
+.balloon button:hover {
+  background: var(--page);
+}
+
+.balloon button.to {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.balloon button.more {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+.balloon .icon {
+  width: 20px;
+  height: 20px;
 }
 
 @keyframes balloon-in {
@@ -1849,24 +1922,4 @@ button.danger {
   .balloon {
     animation: none;
   }
-}
-
-.balloon-title {
-  margin: 0 4px 8px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.balloon-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.balloon-actions button {
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
-  white-space: nowrap;
 }

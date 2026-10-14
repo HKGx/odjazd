@@ -396,7 +396,6 @@ export const ExploreView = (props: {
                   city={props.city.id}
                   point={point()}
                   at={at()}
-                  stops={stopsReady}
                   onClose={() => setBalloon(undefined)}
                 />
               )}

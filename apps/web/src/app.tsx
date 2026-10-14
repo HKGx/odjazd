@@ -45,9 +45,36 @@ const sections = [
   { page: "about", label: "About", icon: AboutIcon },
 ] as const;
 
-/** In the header on wide screens; a small floating dock at the bottom on phones. */
-const Nav = (props: { class: string }) => (
+/** The network you're in; only when there's more than one. */
+const CityPicker = (props: { cities: CityList; city: CitySummary | undefined; class: string }) => (
+  <Show when={props.cities.cities.length > 1 && props.city !== undefined}>
+    <label class={props.class}>
+      <span class="sr-only">City</span>
+      <select
+        onChange={(e) => {
+          const id = props.cities.cities.find((c) => c.id === e.currentTarget.value)?.id;
+          if (id !== undefined) updatePreferences({ city: id });
+        }}
+      >
+        <For each={props.cities.cities}>
+          {(c) => (
+            <option value={c.id} selected={c.id === props.city?.id}>
+              {c.name["en"] ?? c.id}
+            </option>
+          )}
+        </For>
+      </select>
+    </label>
+  </Show>
+);
+
+/**
+ * In the header on wide screens; on phones, a small floating dock at the
+ * bottom that also holds the city picker (`children`).
+ */
+const Nav = (props: { class: string; children?: JSX.Element }) => (
   <nav class={props.class} aria-label="Sections">
+    {props.children}
     <For each={sections}>
       {(section) => (
         <a
@@ -239,25 +266,7 @@ const Shell = (props: { cities: CityList }) => {
         <a class="brand" href={href({ page: "map" })}>
           odjazd
         </a>
-        <Show when={props.cities.cities.length > 1 && city() !== undefined}>
-          <label class="city-picker">
-            <span class="sr-only">City</span>
-            <select
-              onChange={(e) => {
-                const id = props.cities.cities.find((c) => c.id === e.currentTarget.value)?.id;
-                if (id !== undefined) updatePreferences({ city: id });
-              }}
-            >
-              <For each={props.cities.cities}>
-                {(c) => (
-                  <option value={c.id} selected={c.id === city()?.id}>
-                    {c.name["en"] ?? c.id}
-                  </option>
-                )}
-              </For>
-            </select>
-          </label>
-        </Show>
+        <CityPicker cities={props.cities} city={city()} class="city-picker" />
         <Show when={props.cities.cities.length === 1}>
           <span class="city-name">{city()?.name["en"]}</span>
         </Show>
@@ -286,7 +295,9 @@ const Shell = (props: { cities: CityList }) => {
           )}
         </Show>
       </main>
-      <Nav class="dock" />
+      <Nav class="dock">
+        <CityPicker cities={props.cities} city={city()} class="dock-city" />
+      </Nav>
     </>
   );
 };

@@ -1,13 +1,13 @@
 import type { CityId } from "@odjazd/model";
-import type { StopsDto } from "@odjazd/worker";
-import { type Accessor, onCleanup, Show } from "solid-js";
+import { onCleanup } from "solid-js";
+import { MoreIcon } from "../../icons.tsx";
 import { navigate, type Place } from "../../route.ts";
-import { draftOf, nearestStop, setDraft } from "./endpoints.ts";
+import { draftOf, setDraft } from "./endpoints.ts";
 
 /** Room the balloon needs above a point before it opens below it instead. */
-const ROOM_ABOVE = 132;
+const ROOM_ABOVE = 84;
 /** Half the balloon's width, so it stays inside the map near the edges. */
-const HALF = 150;
+const HALF = 120;
 
 /**
  * What to do with a long-pressed (or right-clicked) point, right where it is:
@@ -19,11 +19,9 @@ export const Balloon = (props: {
   point: { lat: number; lon: number };
   /** The point on screen and the map's size, in pixels. */
   at: { x: number; y: number; width: number };
-  stops: Accessor<StopsDto | undefined>;
   onClose: () => void;
 }) => {
   const place = (): Place => ({ kind: "at", lat: props.point.lat, lon: props.point.lon });
-  const near = () => nearestStop(props.stops(), props.point.lat, props.point.lon);
   const below = () => props.at.y < ROOM_ABOVE;
   // The box slides to stay on screen; its tip stays on the point.
   const left = () =>
@@ -61,30 +59,24 @@ export const Balloon = (props: {
           "--tip": `${props.at.x - left()}px`,
         }}
       >
-        <p class="balloon-title small">
-          <Show when={near()} fallback="Point on the map">
-            {(name) => <>Near {name()}</>}
-          </Show>
-        </p>
-        <div class="balloon-actions">
-          <button type="button" onClick={() => use("from")}>
-            From here
-          </button>
-          <button type="button" class="primary" onClick={() => use("to")}>
-            To here
-          </button>
-          <button
-            type="button"
-            class="ghost"
-            title="Save this point, make an interchange area, nearby stops"
-            onClick={() => {
-              props.onClose();
-              navigate({ page: "point", lat: props.point.lat, lon: props.point.lon });
-            }}
-          >
-            More…
-          </button>
-        </div>
+        <button type="button" onClick={() => use("from")}>
+          From here
+        </button>
+        <button type="button" class="to" onClick={() => use("to")}>
+          To here
+        </button>
+        <button
+          type="button"
+          class="more"
+          aria-label="More: save, interchange area, nearby stops"
+          title="Save this point, make an interchange area, nearby stops"
+          onClick={() => {
+            props.onClose();
+            navigate({ page: "point", lat: props.point.lat, lon: props.point.lon });
+          }}
+        >
+          <MoreIcon />
+        </button>
       </div>
     </>
   );
