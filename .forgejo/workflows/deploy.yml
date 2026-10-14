@@ -53,6 +53,20 @@ jobs:
             --label "org.opencontainers.image.revision=$FORGEJO_SHA" \
             --push
 
+      - name: Deploy GZM GTFS-RT proxy worker
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          if [ -n "$CF_ACCOUNT_ID" ] && [ -n "$CF_API_TOKEN" ]; then
+            WORKER_SOURCE="$(cat tools/gzm-proxy/worker.js)" \
+              docker run --rm -i \
+                -e CF_ACCOUNT_ID \
+                -e CF_API_TOKEN \
+                -e WORKER_SOURCE \
+                node:26-slim node - < tools/gzm-proxy/deploy.mjs
+          fi
+
   deploy:
     runs-on: docker
     needs: build-and-push

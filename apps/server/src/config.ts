@@ -18,6 +18,15 @@ export const streetsOverride = (city: CityId) =>
   Config.String(`ODJAZD_OSM_${city.toUpperCase().replaceAll("-", "_")}`).pipe(Config.option);
 
 /**
+ * Alternate URL for a realtime feed when the publisher blocks the server's
+ * network, e.g. `ODJAZD_RT_PL_GLIWICE_ZTM_VEHICLE_POSITIONS=https://...`.
+ */
+export const realtimeOverride = (city: CityId, feedId: string) =>
+  Config.String(
+    `ODJAZD_RT_${city.toUpperCase().replaceAll("-", "_")}_${feedId.toUpperCase().replaceAll("-", "_")}`,
+  ).pipe(Config.option);
+
+/**
  * The built web app (`apps/web/dist`) to serve next to the API, in production
  * one origin for both. Unset in development, where Vite serves it.
  */

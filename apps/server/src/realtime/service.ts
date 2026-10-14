@@ -10,6 +10,7 @@ import {
 import type { CityId } from "@odjazd/model";
 import { Clock, Context, Effect, Layer, Option, PubSub, Ref, Schedule, Stream } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
+import { realtimeOverride } from "../config.ts";
 import { Publisher } from "../publisher.ts";
 import { diffVehicles, makeResolver, type Resolver, resolveVehicles } from "./resolve.ts";
 
@@ -40,11 +41,18 @@ export class Realtime extends Context.Service<
         const cities = new Map<CityId, CityFeed>();
 
         for (const entry of entries) {
-          const feedOf = (type: RealtimeFeed["type"]) =>
-            entry.feeds.realtime.find((feed) => feed.type === type);
-          const positionsFeed = feedOf("vehicle_positions");
+          const feedOf = Effect.fn("Realtime.feedOf")(function* (type: RealtimeFeed["type"]) {
+            const feed = entry.feeds.realtime.find((f) => f.type === type);
+            if (feed === undefined) return undefined;
+            const override = yield* realtimeOverride(entry.id, feed.id);
+            return Option.match(override, {
+              onNone: () => feed,
+              onSome: (url) => ({ ...feed, url }),
+            });
+          });
+          const positionsFeed = yield* feedOf("vehicle_positions");
           if (positionsFeed === undefined) continue;
-          const updatesFeed = feedOf("trip_updates");
+          const updatesFeed = yield* feedOf("trip_updates");
 
           const state = yield* Ref.make<RealtimeSnapshot>({
             city: entry.id,
